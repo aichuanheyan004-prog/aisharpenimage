@@ -133,7 +133,7 @@ export default async function handler(request: ApiRequest, response: ApiResponse
       }
       if (!checkRateLimit(request)) {
         response.setHeader("Retry-After", "86400");
-        response.status(429).json({ error: "This network has reached today's complimentary AI allowance." });
+        response.status(429).json({ error: "AI enhancement is temporarily unavailable. Please try again later." });
         return;
       }
       const result = await runpodRequest("/run", {
