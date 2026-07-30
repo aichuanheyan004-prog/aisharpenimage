@@ -1,10 +1,10 @@
 # RunPod deployment
 
-The AI beta uses a public derivative of RunPod's `runpod/worker-comfyui:5.8.6-base-cuda12.8.1` image and the BSD-3-Clause Real-ESRGAN `RealESRGAN_x2plus.pth` and `RealESRGAN_x4plus.pth` weights. Native x2 is the quality/speed candidate; x4 remains in the image for measured rollback. The derivative force-installs PyTorch 2.7.1, torchvision 0.22.1, and torchaudio 2.7.1 from PyTorch's `cu128` wheel index, then verifies `torch.version.cuda == 12.8` during the image build. This is required because the upstream image was observed on July 30, 2026 to contain a PyTorch build that rejected a RunPod host with CUDA driver 12.8 even though the image tag names CUDA 12.8.1.
+The AI beta uses a public derivative of RunPod's `runpod/worker-comfyui:5.8.6-base-cuda12.8.1` image and the BSD-3-Clause Real-ESRGAN `RealESRGAN_x2plus.pth` and `RealESRGAN_x4plus.pth` weights. High Quality uses x4 then returns a blended 2x result; Fast uses native x2. The derivative force-installs PyTorch 2.7.1, torchvision 0.22.1, and torchaudio 2.7.1 from PyTorch's `cu128` wheel index, then verifies `torch.version.cuda == 12.8` during the image build. This is required because the upstream image was observed on July 30, 2026 to contain a PyTorch build that rejected a RunPod host with CUDA driver 12.8 even though the image tag names CUDA 12.8.1.
 
 ## Required endpoint settings
 
-- GPU: 24 GB flex class first, 24 GB PRO fallback; 16 GB was removed after repeated low-supply allocation failures
+- GPU: 24 GB and 16 GB flex classes with 24 GB PRO fallback; the live endpoint chooses an available allowed worker
 - Active workers: 0
 - Max workers: 1
 - Idle timeout: 5 seconds
@@ -44,4 +44,8 @@ The Vercel proxy allows at most two outstanding jobs per runtime in addition to 
 
 Generate the deterministic chart with `npm run benchmark:fixtures`, run each cloud workflow against the same input, then score outputs with `npm run benchmark:quality -- baseline=<path> candidate=<path>`. Inspect photo-like samples visually as well; metrics alone cannot catch waxy texture, invented letters, halos, or color shifts.
 
-The July 30, 2026 x4-to-x2 baseline for the deterministic chart was 18.01 seconds execution, 61,380 bytes, SSIM 0.98493, PSNR 26.47 dB, and edge MAE 103.59. A local 85% AI / 15% faithful Lanczos blend improved the same decoded output to SSIM 0.98658, PSNR 27.14 dB, and edge MAE 95.23. Keep the native x2 workflow only when repeated real GPU runs preserve or improve those quality measures, show no worse visual artifacts on photos/text/lines/noise, and reduce median execution time by at least 20%.
+The July 30, 2026 x4-to-x2 baseline for the deterministic chart was 18.01 seconds execution, 61,380 bytes, SSIM 0.98493, PSNR 26.47 dB, and edge MAE 103.59. A local 85% AI / 15% faithful Lanczos blend improved the same decoded output to SSIM 0.98658, PSNR 27.14 dB, and edge MAE 95.23; this is the default High Quality design.
+
+The deployed High Quality workflow was then verified end to end at WebP quality 86: 11.32 seconds queue delay, 5.31 seconds execution, 72,226 bytes, SSIM 0.98572, PSNR 26.90 dB, and edge MAE 100.37. It improved every measured quality dimension over the earlier unblended x4 baseline while reducing measured execution time by about 70.5% on the observed worker.
+
+Native x2 completed on the same RTX A5000 worker in 5.85 seconds after a 29.27-second cold queue, then in 3.54 seconds after a 10.75-second FlashBoot delay. A fully hot request completed in 473 ms after 915 ms queue delay. Its blended chart result was smoother and did not pass the High Quality numeric gate (SSIM 0.98155, PSNR 25.88 dB, edge MAE 111.29), so it remains an explicitly labeled Fast choice rather than replacing the default. Visual review also remains mandatory because the sharper x4 path can alter tiny lettering while x2 can suppress fine texture.

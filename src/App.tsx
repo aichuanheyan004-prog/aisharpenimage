@@ -14,6 +14,7 @@ import {
 import {
   AI_POLL_INTERVAL_MS,
   AI_POLL_TIMEOUT_MS,
+  AiQualityMode,
   PreparedAiUpload,
   cancelAiJob,
   dataUrlToBlob,
@@ -38,6 +39,7 @@ type ResultState = {
   height: number;
   changedPixels: number;
   name: string;
+  aiQuality?: AiQualityMode;
 };
 
 type ToolMode = "local" | "ai";
@@ -62,13 +64,13 @@ function waitForPoll(delay: number, signal: AbortSignal): Promise<void> {
   });
 }
 
-function aiOutputName(inputName: string): string {
+function aiOutputName(inputName: string, aiQuality: AiQualityMode): string {
   const base = (inputName || "image")
     .replace(/\.[^.]+$/, "")
     .replace(/[^\w.-]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 80) || "image";
-  return `${base}-ai-2x.webp`;
+  return `${base}-ai-${aiQuality}-2x.webp`;
 }
 
 export function App() {
@@ -82,6 +84,7 @@ export function App() {
 
 function Home() {
   const [mode, setMode] = useState<ToolMode>("local");
+  const [aiQuality, setAiQuality] = useState<AiQualityMode>("quality");
   const [settings, setSettings] = useState(defaultSettings);
   const [sourceFile, setSourceFile] = useState<File | null>(null);
   const [sourceBlob, setSourceBlob] = useState<Blob | null>(null);
@@ -204,9 +207,11 @@ function Home() {
     const startedAt = Date.now();
 
     try {
-      const job = await startAiJob(preparedAi, controller.signal);
+      const job = await startAiJob(preparedAi, aiQuality, controller.signal);
       aiJobRef.current = job.id;
-      setStatus(job.status === "processing" ? "AI enhancement is running..." : "Starting AI enhancement. The first run may take about a minute.");
+      setStatus(job.status === "processing"
+        ? `${aiQuality === "quality" ? "High Quality" : "Fast"} AI enhancement is running...`
+        : `Starting ${aiQuality === "quality" ? "High Quality" : "Fast"} AI enhancement. A cold worker can take longer.`);
 
       while (Date.now() - startedAt < AI_POLL_TIMEOUT_MS) {
         await waitForPoll(AI_POLL_INTERVAL_MS, controller.signal);
@@ -217,7 +222,7 @@ function Home() {
           continue;
         }
         if (current.status === "processing") {
-          setStatus(`Enhancing your image... ${elapsedSeconds}s elapsed.`);
+          setStatus(`${aiQuality === "quality" ? "Building finer detail" : "Enhancing quickly"}... ${elapsedSeconds}s elapsed.`);
           continue;
         }
         if (current.status === "failed" || current.status === "canceled") {
@@ -226,13 +231,13 @@ function Home() {
         if (!current.resultDataUrl) throw new Error("The AI job completed without an image.");
 
         const blob = dataUrlToBlob(current.resultDataUrl);
-        const resultFile = new File([blob], aiOutputName(sourceFile.name), { type: blob.type });
+        const resultFile = new File([blob], aiOutputName(sourceFile.name, aiQuality), { type: blob.type });
         const bitmap = await decodeBitmap(resultFile);
         const width = bitmap.width;
         const height = bitmap.height;
         bitmap.close();
-        setResult({ blob, width, height, changedPixels: 0, name: resultFile.name });
-        setStatus("Ready. AI 2x output is model-assisted and may contain estimated detail.");
+        setResult({ blob, width, height, changedPixels: 0, name: resultFile.name, aiQuality });
+        setStatus(`Ready. ${aiQuality === "quality" ? "High Quality" : "Fast"} AI 2x output is model-assisted and may contain estimated detail.`);
         aiJobRef.current = null;
         return;
       }
@@ -375,10 +380,19 @@ function Home() {
                 <input data-testid="denoise-slider" type="range" min="0" max="1" step="0.05" value={settings.denoise} onChange={(event) => updateSetting("denoise", Number(event.target.value))} />
                 <output>{settings.denoise.toFixed(2)}</output>
               </label>
-            </> : <div className="ai-notice">
-              <strong>Quality-focused 2x enhancement</strong>
-              <span>A tested super-resolution model creates a larger WebP with estimated detail. No face restoration or true motion deblur is used.</span>
-            </div>}
+            </> : <>
+              <div className="quality-switch" role="group" aria-label="AI quality mode">
+                <button type="button" className={aiQuality === "quality" ? "selected" : ""} aria-pressed={aiQuality === "quality"} onClick={() => setAiQuality("quality")} disabled={busy}>High Quality</button>
+                <button type="button" className={aiQuality === "fast" ? "selected" : ""} aria-pressed={aiQuality === "fast"} onClick={() => setAiQuality("fast")} disabled={busy}>Fast</button>
+              </div>
+              <div className="ai-notice">
+                <strong>{aiQuality === "quality" ? "More detail, longer processing" : "Faster output, gentler detail"}</strong>
+                <span>{aiQuality === "quality"
+                  ? "Runs a stronger 4x detail pass, returns a practical 2x image, and blends in a faithful resize to reduce artifacts."
+                  : "Uses a native 2x model for faster processing. It may look smoother on fine texture or heavily compressed inputs."}</span>
+                <span>No face restoration or true motion deblur is used.</span>
+              </div>
+            </>}
             <label className="control">
               <span>Preview zoom</span>
               <input data-testid="zoom-slider" type="range" min="0.5" max="2.5" step="0.1" value={zoom} onChange={(event) => setZoom(Number(event.target.value))} />
@@ -412,6 +426,7 @@ function Home() {
             <dl className="facts">
               <div><dt>Input</dt><dd>{sourceFile ? `${sourceFile.name} (${Math.round(sourceFile.size / 1024)} KB)` : "None"}</dd></div>
               <div><dt>Output</dt><dd>{resultMeta}</dd></div>
+              {mode === "ai" && <div><dt>Result mode</dt><dd>{result?.aiQuality === "fast" ? "Fast" : result?.aiQuality === "quality" ? "High Quality" : "Not processed yet"}</dd></div>}
               <div><dt>Privacy</dt><dd>{mode === "local" ? "Processed locally in this browser." : "A resized derivative is sent for processing only when requested; no public result page."}</dd></div>
               {mode === "ai" && <div><dt>Free use</dt><dd>Up to two complimentary AI enhancements each day. Availability may vary.</dd></div>}
             </dl>
@@ -502,7 +517,7 @@ function Guide() {
         <li>Export PNG for transparent graphics, JPEG for photos, and WebP when web delivery matters.</li>
       </ol>
       <p>
-        Local Sharpen stays in your browser. AI 2x mode sends a resized derivative to a tested super-resolution workflow only after you request it. Model output may add plausible detail and should not be treated as a truthful reconstruction.
+        Local Sharpen stays in your browser. AI 2x sends a resized derivative only after you request it. High Quality uses a stronger detail pass for the default result; Fast uses a lighter native 2x pass when turnaround matters more. Both are fixed, tested super-resolution workflows, not face restoration or true motion deblur. Model output may add plausible detail and should not be treated as a truthful reconstruction.
       </p>
     </article>
   );
@@ -527,7 +542,7 @@ function Privacy() {
       </p>
       <h2>RunPod AI 2x beta</h2>
       <p>
-        Before upload, the browser reduces the image to at most about 1 megapixel and encodes a WebP derivative. The server validates the decoded MIME, dimensions, animation, and transparency, strips metadata, and sends the derivative to RunPod for a fixed ComfyUI and Real-ESRGAN workflow. RunPod may process data in an available infrastructure region. Job results may remain retrievable from RunPod's status endpoint for up to 30 minutes under its current Serverless behavior. The site does not add durable image storage; ordinary provider security and billing logs may follow the provider's separate retention practices.
+        Before upload, the browser reduces the image to at most about 1 megapixel and encodes a WebP derivative. The server validates the decoded MIME, dimensions, animation, and transparency, strips metadata, and sends the derivative to RunPod for one of two fixed ComfyUI and Real-ESRGAN workflows selected by the user. RunPod may process data in an available infrastructure region. Job results may remain retrievable from RunPod's status endpoint for up to 30 minutes under its current Serverless behavior. The site does not add durable image storage; ordinary provider security and billing logs may follow the provider's separate retention practices.
       </p>
     </article>
   );

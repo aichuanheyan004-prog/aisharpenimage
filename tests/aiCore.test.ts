@@ -4,11 +4,14 @@ import { describe, expect, it } from "vitest";
 import sharp from "sharp";
 import {
   AI_BLEND_FACTOR,
-  REAL_ESRGAN_MODEL,
+  AI_OUTPUT_QUALITY,
+  REAL_ESRGAN_FAST_MODEL,
+  REAL_ESRGAN_QUALITY_MODEL,
   buildComfyWorkflow,
   createRunpodInput,
   extractRunpodImage,
   normalizeRunpodStatus,
+  parseAiQualityMode,
   parseImageDataUrl,
   sanitizeAiInput,
   validateJobId
@@ -55,16 +58,32 @@ describe("AI input validation", () => {
 });
 
 describe("RunPod contract", () => {
-  it("uses a fixed allowlisted ComfyUI workflow", () => {
-    const workflow = buildComfyWorkflow();
-    expect(workflow["2"].inputs.model_name).toBe(REAL_ESRGAN_MODEL);
-    expect(workflow["3"].inputs.image).toEqual(["1", 0]);
-    expect(workflow["4"].inputs).toMatchObject({ image: ["1", 0], scale_by: 2 });
-    expect(workflow["5"].inputs).toMatchObject({ blend_factor: AI_BLEND_FACTOR, blend_mode: "normal" });
-    expect(workflow["6"].class_type).toBe("SaveAnimatedWEBP");
-    expect(workflow["6"].inputs).toMatchObject({ images: ["5", 0], quality: 88 });
+  it("uses a fixed quality-first workflow by default", () => {
+    const workflow = buildComfyWorkflow("quality");
+    expect(workflow["2"].inputs.model_name).toBe(REAL_ESRGAN_QUALITY_MODEL);
+    expect(workflow["4"].inputs).toMatchObject({ image: ["3", 0], scale_by: 0.5 });
+    expect(workflow["5"].inputs).toMatchObject({ image: ["1", 0], scale_by: 2 });
+    expect(workflow["6"].inputs).toMatchObject({ image1: ["5", 0], image2: ["4", 0], blend_factor: AI_BLEND_FACTOR });
+    expect(workflow["7"].inputs).toMatchObject({ images: ["6", 0], quality: AI_OUTPUT_QUALITY });
     const request = createRunpodInput({ dataUrl: "data:image/webp;base64,AAAA", width: 1, height: 1 });
+    expect(request.input.workflow["2"].inputs.model_name).toBe(REAL_ESRGAN_QUALITY_MODEL);
     expect(request.input.images).toEqual([{ name: "input.webp", image: "data:image/webp;base64,AAAA" }]);
+  });
+
+  it("uses the native 2x model only for the allowlisted fast mode", () => {
+    const workflow = buildComfyWorkflow("fast");
+    expect(workflow["2"].inputs.model_name).toBe(REAL_ESRGAN_FAST_MODEL);
+    expect(workflow["4"].inputs).toMatchObject({ image: ["1", 0], scale_by: 2 });
+    expect(workflow["5"].inputs).toMatchObject({ image1: ["4", 0], image2: ["3", 0], blend_factor: AI_BLEND_FACTOR });
+    expect(workflow["6"].inputs).toMatchObject({ images: ["5", 0], quality: AI_OUTPUT_QUALITY });
+    expect(workflow["7"]).toBeUndefined();
+  });
+
+  it("accepts only the two fixed quality modes", () => {
+    expect(parseAiQualityMode(undefined)).toBe("quality");
+    expect(parseAiQualityMode("quality")).toBe("quality");
+    expect(parseAiQualityMode("fast")).toBe("fast");
+    expect(() => parseAiQualityMode("custom")).toThrow(/quality mode/i);
   });
 
   it("normalizes statuses and validates job IDs", () => {

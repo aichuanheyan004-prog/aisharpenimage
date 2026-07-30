@@ -3,6 +3,7 @@ import {
   createRunpodInput,
   extractRunpodImage,
   normalizeRunpodStatus,
+  parseAiQualityMode,
   sanitizeAiInput,
   validateJobId
 } from "../server/aiCore.js";
@@ -121,8 +122,9 @@ export default async function handler(request: ApiRequest, response: ApiResponse
 
   try {
     if (request.method === "POST") {
-      const body = request.body as { image?: unknown } | undefined;
+      const body = request.body as { image?: unknown; mode?: unknown } | undefined;
       const input = await sanitizeAiInput(body?.image);
+      const mode = parseAiQualityMode(body?.mode);
       pruneOutstandingJobs();
       if (outstandingJobs.size >= MAX_OUTSTANDING_JOBS_PER_RUNTIME) {
         response.setHeader("Retry-After", "30");
@@ -136,7 +138,7 @@ export default async function handler(request: ApiRequest, response: ApiResponse
       }
       const result = await runpodRequest("/run", {
         method: "POST",
-        body: JSON.stringify(createRunpodInput(input))
+        body: JSON.stringify(createRunpodInput(input, mode))
       }) as { id?: unknown; status?: unknown };
       const id = validateJobId(result.id);
       outstandingJobs.set(id, Date.now());

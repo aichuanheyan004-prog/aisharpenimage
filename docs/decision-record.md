@@ -53,7 +53,7 @@ Possible stack: ONNX Runtime Web/WebGPU/WASM plus a legally usable quantized sup
 
 Decision: test small, authorized by the user on July 30, 2026 with the existing one-time USD 10 prepaid balance after RunPod's live billing UI required that minimum card transaction. The user later confirmed the current balance may be used without an additional top-up; auto-pay remains disabled. Do not use a paid closed-model API.
 
-The beta uses RunPod Serverless, a public derivative of the AGPL-3.0 `worker-comfyui` image with PyTorch pinned to the official `cu128` wheel channel, and the BSD-3-Clause `RealESRGAN_x4plus.pth` model. The upstream CUDA 12.8.1-tagged image was directly observed on July 30, 2026 to fail GPU preflight on a CUDA 12.8 RunPod host because its installed PyTorch build required a newer driver. The derivative verifies `torch.version.cuda == 12.8` during CI and keeps the deployment source public. The browser creates an approximately 1 MP WebP derivative; the Vercel API decodes it with `sharp`, verifies actual type and dimensions, rejects animation/transparency, rotates from EXIF, strips metadata, and submits only a fixed workflow. Real-ESRGAN performs model-assisted 4x super-resolution and ComfyUI downsamples to a practical 2x WebP. This is not face restoration, forensic recovery, or true motion deblur.
+The beta uses RunPod Serverless, a public derivative of the AGPL-3.0 `worker-comfyui` image with PyTorch pinned to the official `cu128` wheel channel, and the BSD-3-Clause `RealESRGAN_x4plus.pth` and `RealESRGAN_x2plus.pth` models. The upstream CUDA 12.8.1-tagged image was directly observed on July 30, 2026 to fail GPU preflight on a CUDA 12.8 RunPod host because its installed PyTorch build required a newer driver. The derivative verifies `torch.version.cuda == 12.8` during CI and keeps the deployment source public. The browser creates an approximately 1 MP WebP derivative; the Vercel API decodes it with `sharp`, verifies actual type and dimensions, rejects animation/transparency, rotates from EXIF, strips metadata, and accepts only `quality` or `fast`. High Quality is the default fixed workflow: x4 model pass, downsample to 2x, then 85% AI / 15% faithful Lanczos blend. Fast uses the native x2 model with the same artifact-reducing blend. Neither mode is face restoration, forensic recovery, or true motion deblur.
 
 RunPod's current Serverless API provides `/run`, `/status/{jobId}`, and `/cancel/{jobId}`. Serverless scales to zero and bills by execution time. One flex worker, zero active workers with FlashBoot, max workers one, and a 300-second execution timeout constrain concurrency while avoiding the observed full cold-start timeout. The site does not retry failed submissions automatically, preventing duplicate GPU charges.
 
@@ -67,9 +67,11 @@ RunPod pricing check: official RunPod pages observed July 30, 2026 showed approx
 
 Illustrative compute-only scenarios at the selected USD 0.69/hour standard 24 GB rate: 20 billed seconds is about USD 0.0038 per job, 60 seconds about USD 0.0115, and the full 300-second timeout about USD 0.0575. The USD 1.10/hour PRO fallback would cost about USD 0.0917 for 300 seconds. The first verified sample executed for 26.59 seconds on an RTX A4500; at USD 0.58/hour that is approximately USD 0.0043 of compute before any other charges. These estimates exclude failed work, cold-start behavior, data transfer, tax, and future price changes. Measure actual billed seconds and completed outputs before setting any free allowance, and require a new user approval for any later top-up.
 
-Vercel's current request and response payload limit is 4.5 MB. The client reduces inputs before upload, the API caps request data, and output is a quality-82 WebP capped below that boundary. The best-effort per-IP/runtime limiter helps availability but cannot resist distributed proxies or guarantee quota consistency across serverless instances. The prepaid balance remains the only reliable bill ceiling.
+Quality/speed verification on July 30, 2026: the default High Quality x4-to-2x blend completed on an RTX A5000 after 11.32 seconds queue delay and 5.31 seconds execution, about 70.5% faster execution than the earlier 18.01-second x4 baseline. On the deterministic chart it improved the earlier unblended x4 baseline from SSIM 0.98493 / PSNR 26.47 dB / edge MAE 103.59 to SSIM 0.98572 / PSNR 26.90 dB / edge MAE 100.37. Fast native x2 reached 473 ms on a fully hot worker but scored lower on fine texture, so it remains an explicit optional mode rather than the default.
 
-Future paid features, only after separate approval: batch processing, huge images, 4x/high-quality models, GPU fast queue, private history, API, commercial workflows, and ad-free/priority use. Before payments: Stripe terms, refunds, tax, privacy, customer support, GPU/storage/bandwidth cost, fraud/chargeback handling, and stop thresholds.
+Vercel's current request and response payload limit is 4.5 MB. The client reduces inputs before upload, the API caps request data, and both workflows return quality-86 WebP. A 4 MP high-noise stress fixture was about 3,968,864 Base64 characters at quality 86 versus about 4,129,800 at quality 88, so quality 86 preserves the response safety margin. The best-effort per-IP/runtime limiter helps availability but cannot resist distributed proxies or guarantee quota consistency across serverless instances. The prepaid balance remains the only reliable bill ceiling.
+
+Future paid features, only after separate approval: batch processing, larger inputs, dedicated priority capacity, stronger specialist models, private history, API, commercial workflows, and ad-free/priority use. Before payments: Stripe terms, refunds, tax, privacy, customer support, GPU/storage/bandwidth cost, fraud/chargeback handling, and stop thresholds.
 
 ## MVP Acceptance Criteria
 
@@ -78,7 +80,7 @@ Future paid features, only after separate approval: batch processing, huge image
 - Drag/drop, choose, paste, example image.
 - Before/after comparison, zoom, sharpness, light denoise, output format, apply, cancel, reset, download.
 - Local mode accurately states that selected images are not uploaded. AI mode uploads only a resized derivative after explicit action.
-- AI 2x uses the fixed Real-ESRGAN workflow, provides queued/running/failed/canceled states, and falls back to Local Sharpen when unavailable.
+- AI 2x exposes only fixed High Quality and Fast Real-ESRGAN workflows, defaults to High Quality, provides queued/running/failed/canceled states, and falls back to Local Sharpen when unavailable.
 - AI inputs are capped at about 1 MP; animated and transparent images are rejected from AI mode and remain eligible for local processing where supported.
 - Transparent PNG alpha is preserved.
 - Broken or disguised files fail cleanly.
@@ -106,7 +108,7 @@ No independent `unblur image`, `AI image enhancer`, `photo sharpener`, or `image
 - Vercel project configuration: `vercel.json`, redirects, headers, clean URLs.
 - RunPod Serverless overview, pricing, billing, account limits, and ComfyUI Serverless guide, checked July 30, 2026.
 - RunPod `worker-comfyui` release 5.8.6 and AGPL-3.0 license.
-- Real-ESRGAN release `v0.1.0`, `RealESRGAN_x4plus.pth`, BSD-3-Clause license.
+- Real-ESRGAN releases `v0.1.0` and `v0.2.1`, `RealESRGAN_x4plus.pth` and `RealESRGAN_x2plus.pth`, BSD-3-Clause license.
 - Vercel Functions request/response body limit documentation, checked July 30, 2026.
 
 Official source URLs:
