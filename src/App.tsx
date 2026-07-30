@@ -468,8 +468,7 @@ function Header() {
 function Footer() {
   return (
     <footer className="site-footer">
-      <span>(c) 2026 AI Sharpen Image</span>
-      <a href="/sitemap.xml">Sitemap</a>
+      <span>© 2026 AI Sharpen Image</span>
     </footer>
   );
 }
@@ -527,7 +526,7 @@ function Privacy() {
     <article>
       <p className="eyebrow">Privacy</p>
       <h1>Privacy Policy</h1>
-      <p>Last updated: July 30, 2026.</p>
+      <p>Last updated: July 31, 2026.</p>
       <p>
         Local Sharpen runs in your browser. Selected images are decoded and processed locally with Canvas APIs and are not uploaded by that mode. AI 2x mode is separate and uploads only after you press Run AI 2x.
       </p>
@@ -539,9 +538,9 @@ function Privacy() {
       <p>
         The tool creates temporary browser object URLs for preview and download. They are revoked when you replace the image, reset the tool, or leave the page. We do not create public result pages.
       </p>
-      <h2>RunPod AI 2x beta</h2>
+      <h2>Cloud AI 2x</h2>
       <p>
-        Before upload, the browser reduces the image to at most about 1 megapixel and encodes a WebP derivative. The server validates the decoded MIME, dimensions, animation, and transparency, strips metadata, and sends the derivative to RunPod for one of two fixed ComfyUI and Real-ESRGAN workflows selected by the user. RunPod may process data in an available infrastructure region. Job results may remain retrievable from RunPod's status endpoint for up to 30 minutes under its current Serverless behavior. The site does not add durable image storage; ordinary provider security and billing logs may follow the provider's separate retention practices.
+        AI 2x uploads a resized WebP copy of your image (up to about 1 megapixel) to RunPod only after you start processing. Metadata is removed before upload. RunPod processes the image temporarily and may keep the job result available for up to 30 minutes. We do not add permanent image storage or publish your results. RunPod may retain routine security and service logs under its own policy.
       </p>
     </article>
   );

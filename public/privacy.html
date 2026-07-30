@@ -4,11 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Privacy Policy - AI Sharpen Image</title>
-    <meta name="description" content="Privacy details for local image sharpening and the limited RunPod AI 2x beta, including uploads, metadata removal, logs, and retention." />
+    <meta name="description" content="How Local Sharpen and optional Cloud AI 2x handle image uploads, temporary processing, metadata, and service logs." />
     <link rel="canonical" href="https://www.aisharpenimage.net/privacy" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <meta property="og:title" content="Privacy Policy - AI Sharpen Image" />
-    <meta property="og:description" content="How Local Sharpen and the limited RunPod AI 2x beta handle files, logs, and temporary results." />
+    <meta property="og:description" content="How Local Sharpen and optional Cloud AI 2x handle files, logs, and temporary results." />
     <meta property="og:url" content="https://www.aisharpenimage.net/privacy" />
     <meta property="og:image" content="https://www.aisharpenimage.net/og-image.png" />
     <meta name="twitter:card" content="summary_large_image" />
@@ -19,14 +19,14 @@
     <main><article>
       <p class="eyebrow">Privacy</p>
       <h1>Privacy Policy</h1>
-      <p>Last updated: July 30, 2026.</p>
+      <p>Last updated: July 31, 2026.</p>
       <p>Local Sharpen runs in your browser. Selected images are decoded and processed locally with Canvas APIs and are not uploaded by that mode. AI 2x mode is separate and uploads only after you press Run AI 2x.</p>
       <h2>What we collect</h2>
       <p>We do not create public result pages or intentionally log image contents or filenames. Standard Vercel and RunPod service logs may include request metadata, timestamps, job IDs, status, runtime, IP address, and user agent for security, billing, and reliability.</p>
       <h2>Storage</h2>
       <p>The tool creates temporary browser object URLs for preview and download. They are revoked when you replace the image, reset the tool, or leave the page. We do not create public result pages.</p>
-      <h2>RunPod AI 2x beta</h2>
-      <p>Before upload, the browser reduces the image to at most about 1 megapixel and encodes a WebP derivative. The server validates the decoded MIME, dimensions, animation, and transparency, strips metadata, and sends the derivative to RunPod for one of two fixed ComfyUI and Real-ESRGAN workflows selected by the user. RunPod may process data in an available infrastructure region. Job results may remain retrievable from RunPod's status endpoint for up to 30 minutes under its current Serverless behavior. The site does not add durable image storage; ordinary provider security and billing logs may follow the provider's separate retention practices.</p>
+      <h2>Cloud AI 2x</h2>
+      <p>AI 2x uploads a resized WebP copy of your image (up to about 1 megapixel) to RunPod only after you start processing. Metadata is removed before upload. RunPod processes the image temporarily and may keep the job result available for up to 30 minutes. We do not add permanent image storage or publish your results. RunPod may retain routine security and service logs under its own policy.</p>
     </article></main>
   </body>
 </html>
