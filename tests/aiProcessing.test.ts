@@ -24,11 +24,11 @@ describe("AI browser API client", () => {
       width: 10,
       height: 10,
       bytes: 3
-    });
+    }, "quality");
 
     expect(result.status).toBe("queued");
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(JSON.parse(String(init.body))).toEqual({ image: "data:image/webp;base64,AAAA" });
+    expect(JSON.parse(String(init.body))).toEqual({ image: "data:image/webp;base64,AAAA", mode: "quality" });
   });
 
   it("surfaces sanitized API errors and encodes job IDs", async () => {

@@ -4,7 +4,12 @@ export const SERVER_AI_MAX_BYTES = 1_250_000;
 export const SERVER_AI_MAX_PIXELS = 1_000_000;
 export const SERVER_AI_MAX_EDGE = 1_600;
 export const SERVER_AI_MAX_RESULT_CHARS = 4_000_000;
-export const REAL_ESRGAN_MODEL = "RealESRGAN_x4plus.pth";
+export const REAL_ESRGAN_QUALITY_MODEL = "RealESRGAN_x4plus.pth";
+export const REAL_ESRGAN_FAST_MODEL = "RealESRGAN_x2plus.pth";
+export const AI_BLEND_FACTOR = 0.85;
+export const AI_OUTPUT_QUALITY = 86;
+
+export type AiQualityMode = "quality" | "fast";
 
 export type SanitizedAiInput = {
   dataUrl: string;
@@ -21,6 +26,12 @@ const JOB_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{7,127}$/;
 export function validateJobId(value: unknown): string {
   if (typeof value !== "string" || !JOB_ID_PATTERN.test(value)) throw new Error("Invalid job ID.");
   return value;
+}
+
+export function parseAiQualityMode(value: unknown): AiQualityMode {
+  if (value === undefined || value === "quality") return "quality";
+  if (value === "fast") return "fast";
+  throw new Error("Use a valid AI quality mode.");
 }
 
 export function parseImageDataUrl(value: unknown): { mime: string; bytes: Buffer } {
@@ -64,47 +75,71 @@ export async function sanitizeAiInput(value: unknown): Promise<SanitizedAiInput>
   };
 }
 
-export function buildComfyWorkflow() {
-  return {
+export function buildComfyWorkflow(mode: AiQualityMode = "quality") {
+  const workflow: Record<string, { inputs: Record<string, unknown>; class_type: string; _meta: { title: string } }> = {
     "1": {
       inputs: { image: "input.webp" },
       class_type: "LoadImage",
       _meta: { title: "Load sanitized input" }
     },
     "2": {
-      inputs: { model_name: REAL_ESRGAN_MODEL },
+      inputs: { model_name: mode === "quality" ? REAL_ESRGAN_QUALITY_MODEL : REAL_ESRGAN_FAST_MODEL },
       class_type: "UpscaleModelLoader",
       _meta: { title: "Load Real-ESRGAN" }
     },
     "3": {
       inputs: { upscale_model: ["2", 0], image: ["1", 0] },
       class_type: "ImageUpscaleWithModel",
-      _meta: { title: "AI 4x restoration" }
-    },
-    "4": {
-      inputs: { image: ["3", 0], upscale_method: "lanczos", scale_by: 0.5 },
-      class_type: "ImageScaleBy",
-      _meta: { title: "Return a practical 2x output" }
-    },
-    "5": {
-      inputs: {
-        images: ["4", 0],
-        filename_prefix: "aisharpenimage",
-        fps: 1,
-        lossless: false,
-        quality: 82,
-        method: "default"
-      },
-      class_type: "SaveAnimatedWEBP",
-      _meta: { title: "Save compact WebP result" }
+      _meta: { title: mode === "quality" ? "AI 4x detail pass" : "Native AI 2x enhancement" }
     }
   };
+
+  const aiOutputNode = mode === "quality" ? "4" : "3";
+  const faithfulNode = mode === "quality" ? "5" : "4";
+  const blendNode = mode === "quality" ? "6" : "5";
+  const saveNode = mode === "quality" ? "7" : "6";
+
+  if (mode === "quality") {
+    workflow[aiOutputNode] = {
+      inputs: { image: ["3", 0], upscale_method: "lanczos", scale_by: 0.5 },
+      class_type: "ImageScaleBy",
+      _meta: { title: "Downsample AI detail to 2x" }
+    };
+  }
+  workflow[faithfulNode] = {
+    inputs: { image: ["1", 0], upscale_method: "lanczos", scale_by: 2 },
+    class_type: "ImageScaleBy",
+    _meta: { title: "Faithful 2x reference" }
+  };
+  workflow[blendNode] = {
+    inputs: {
+      image1: [faithfulNode, 0],
+      image2: [aiOutputNode, 0],
+      blend_factor: AI_BLEND_FACTOR,
+      blend_mode: "normal"
+    },
+    class_type: "ImageBlend",
+    _meta: { title: "Reduce artifacts while retaining AI detail" }
+  };
+  workflow[saveNode] = {
+    inputs: {
+      images: [blendNode, 0],
+      filename_prefix: "aisharpenimage",
+      fps: 1,
+      lossless: false,
+      quality: AI_OUTPUT_QUALITY,
+      method: "default"
+    },
+    class_type: "SaveAnimatedWEBP",
+    _meta: { title: "Save compact WebP result" }
+  };
+  return workflow;
 }
 
-export function createRunpodInput(input: SanitizedAiInput) {
+export function createRunpodInput(input: SanitizedAiInput, mode: AiQualityMode = "quality") {
   return {
     input: {
-      workflow: buildComfyWorkflow(),
+      workflow: buildComfyWorkflow(mode),
       images: [{ name: "input.webp", image: input.dataUrl }]
     }
   };

@@ -5,6 +5,7 @@ export const AI_POLL_INTERVAL_MS = 1_500;
 export const AI_POLL_TIMEOUT_MS = 300_000;
 
 export type AiJobStatus = "queued" | "processing" | "completed" | "failed" | "canceled";
+export type AiQualityMode = "quality" | "fast";
 
 export type PreparedAiUpload = {
   dataUrl: string;
@@ -80,7 +81,7 @@ export async function prepareAiUpload(file: File, signal?: AbortSignal): Promise
     let prepared = await canvasToBlob(canvas, 0.86);
     if (prepared.size > AI_UPLOAD_MAX_BYTES) prepared = await canvasToBlob(canvas, 0.72);
     if (prepared.size > AI_UPLOAD_MAX_BYTES) {
-      throw new Error("This image is too complex for the limited AI beta. Try the local sharpener.");
+      throw new Error("This image is too complex for AI processing. Try the local sharpener.");
     }
 
     return {
@@ -100,11 +101,11 @@ async function parseApiResponse<T>(response: Response): Promise<T> {
   return body;
 }
 
-export async function startAiJob(prepared: PreparedAiUpload, signal?: AbortSignal): Promise<AiJobResponse> {
+export async function startAiJob(prepared: PreparedAiUpload, mode: AiQualityMode, signal?: AbortSignal): Promise<AiJobResponse> {
   const response = await fetch("/api/ai", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ image: prepared.dataUrl }),
+    body: JSON.stringify({ image: prepared.dataUrl, mode }),
     signal
   });
   return parseApiResponse<AiJobResponse>(response);

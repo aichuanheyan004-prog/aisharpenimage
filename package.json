@@ -10,7 +10,10 @@
     "lint": "eslint .",
     "test": "vitest run",
     "preview": "vite preview --host 127.0.0.1",
-    "make:og": "node scripts/make-og.mjs"
+    "make:og": "node scripts/make-og.mjs",
+    "benchmark:fixtures": "node scripts/make-quality-fixtures.mjs",
+    "benchmark:blends": "node scripts/make-blend-candidates.mjs",
+    "benchmark:quality": "node scripts/benchmark-quality.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^6.0.4",

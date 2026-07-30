@@ -41,7 +41,7 @@ describe("AI API deployment guardrails", () => {
     const { response, state } = mockResponse();
     await handler(request("POST"), response);
     expect(state.statusCode).toBe(503);
-    expect(state.body).toEqual({ error: "The limited AI beta is not configured yet. Use Local Sharpen for now." });
+    expect(state.body).toEqual({ error: "AI enhancement is temporarily unavailable. Use Local Sharpen for now." });
     expect(state.headers["Cache-Control"]).toBe("no-store");
   });
 

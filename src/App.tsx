@@ -14,6 +14,7 @@ import {
 import {
   AI_POLL_INTERVAL_MS,
   AI_POLL_TIMEOUT_MS,
+  AiQualityMode,
   PreparedAiUpload,
   cancelAiJob,
   dataUrlToBlob,
@@ -38,6 +39,7 @@ type ResultState = {
   height: number;
   changedPixels: number;
   name: string;
+  aiQuality?: AiQualityMode;
 };
 
 type ToolMode = "local" | "ai";
@@ -62,13 +64,13 @@ function waitForPoll(delay: number, signal: AbortSignal): Promise<void> {
   });
 }
 
-function aiOutputName(inputName: string): string {
+function aiOutputName(inputName: string, aiQuality: AiQualityMode): string {
   const base = (inputName || "image")
     .replace(/\.[^.]+$/, "")
     .replace(/[^\w.-]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 80) || "image";
-  return `${base}-ai-2x.webp`;
+  return `${base}-ai-${aiQuality}-2x.webp`;
 }
 
 export function App() {
@@ -82,6 +84,7 @@ export function App() {
 
 function Home() {
   const [mode, setMode] = useState<ToolMode>("local");
+  const [aiQuality, setAiQuality] = useState<AiQualityMode>("quality");
   const [settings, setSettings] = useState(defaultSettings);
   const [sourceFile, setSourceFile] = useState<File | null>(null);
   const [sourceBlob, setSourceBlob] = useState<Blob | null>(null);
@@ -176,7 +179,7 @@ function Home() {
     setCompare(50);
     setZoom(1);
     setSettings(defaultSettings);
-    setStatus(mode === "ai" ? "Choose an image to prepare a limited AI 2x job." : "Drop, paste, or choose an image to begin.");
+    setStatus(mode === "ai" ? "Choose an image to prepare an AI 2x enhancement." : "Drop, paste, or choose an image to begin.");
   }
 
   function switchMode(nextMode: ToolMode) {
@@ -190,7 +193,7 @@ function Home() {
     setError("");
     setCompare(50);
     setZoom(1);
-    setStatus(nextMode === "ai" ? "Choose an image to prepare a limited AI 2x job." : "Drop, paste, or choose an image to begin.");
+    setStatus(nextMode === "ai" ? "Choose an image to prepare an AI 2x enhancement." : "Drop, paste, or choose an image to begin.");
   }
 
   async function runAi() {
@@ -200,23 +203,26 @@ function Home() {
     setBusy(true);
     setError("");
     setResult(null);
-    setStatus("Uploading the resized copy to the RunPod AI worker...");
+    setStatus("Uploading the resized copy for AI processing...");
     const startedAt = Date.now();
 
     try {
-      const job = await startAiJob(preparedAi, controller.signal);
+      const job = await startAiJob(preparedAi, aiQuality, controller.signal);
       aiJobRef.current = job.id;
-      setStatus(job.status === "processing" ? "AI enhancement is running..." : "AI job is queued. A cold start may take longer.");
+      setStatus(job.status === "processing"
+        ? `${aiQuality === "quality" ? "High Quality" : "Fast"} AI enhancement is running...`
+        : `Starting ${aiQuality === "quality" ? "High Quality" : "Fast"} AI enhancement. A cold worker can take longer.`);
 
       while (Date.now() - startedAt < AI_POLL_TIMEOUT_MS) {
         await waitForPoll(AI_POLL_INTERVAL_MS, controller.signal);
         const current = await getAiJob(job.id, controller.signal);
+        const elapsedSeconds = Math.max(1, Math.round((Date.now() - startedAt) / 1_000));
         if (current.status === "queued") {
-          setStatus("AI job is queued. A cold start may take longer.");
+          setStatus(`Starting AI enhancement... ${elapsedSeconds}s elapsed. You can cancel at any time.`);
           continue;
         }
         if (current.status === "processing") {
-          setStatus("AI 2x enhancement is running on RunPod...");
+          setStatus(`${aiQuality === "quality" ? "Building finer detail" : "Enhancing quickly"}... ${elapsedSeconds}s elapsed.`);
           continue;
         }
         if (current.status === "failed" || current.status === "canceled") {
@@ -225,13 +231,13 @@ function Home() {
         if (!current.resultDataUrl) throw new Error("The AI job completed without an image.");
 
         const blob = dataUrlToBlob(current.resultDataUrl);
-        const resultFile = new File([blob], aiOutputName(sourceFile.name), { type: blob.type });
+        const resultFile = new File([blob], aiOutputName(sourceFile.name, aiQuality), { type: blob.type });
         const bitmap = await decodeBitmap(resultFile);
         const width = bitmap.width;
         const height = bitmap.height;
         bitmap.close();
-        setResult({ blob, width, height, changedPixels: 0, name: resultFile.name });
-        setStatus("Ready. AI 2x output is model-assisted and may contain estimated detail.");
+        setResult({ blob, width, height, changedPixels: 0, name: resultFile.name, aiQuality });
+        setStatus(`Ready. ${aiQuality === "quality" ? "High Quality" : "Fast"} AI 2x output is model-assisted and may contain estimated detail.`);
         aiJobRef.current = null;
         return;
       }
@@ -303,12 +309,12 @@ function Home() {
             </div>
             <div className="title-row">
               <div>
-                <p className="eyebrow">{mode === "local" ? "Private browser tool" : "Limited cloud GPU beta"}</p>
+                <p className="eyebrow">{mode === "local" ? "Private browser tool" : "AI 2x enhancement"}</p>
                 <h1 id="home-title">AI Sharpen Image Online</h1>
                 <p className="intro">
                   {mode === "local"
                     ? "Sharpen soft photos and graphics in your browser. Local mode uses edge contrast and light denoise processing without uploading the selected image."
-                    : "Create a model-assisted 2x WebP with Real-ESRGAN on a RunPod GPU. A resized copy is uploaded only after you press Run AI 2x; output may contain estimated detail."}
+                    : "Create a model-assisted 2x WebP with a tested super-resolution workflow. A resized copy is uploaded only after you press Run AI 2x; output may contain estimated detail."}
                 </p>
               </div>
               <div className={`privacy-badge ${mode === "ai" ? "cloud" : ""}`}><ShieldCheck size={18} /> {mode === "local" ? "No upload in Local mode" : "Uploads resized copy on command"}</div>
@@ -361,7 +367,7 @@ function Home() {
           <aside className="controls" aria-label={mode === "local" ? "Sharpening controls" : "AI enhancement controls"}>
             <div className="panel-title">
               <Sparkles size={18} />
-              <h2>{mode === "local" ? "Adjust" : "AI 2x beta"}</h2>
+              <h2>{mode === "local" ? "Adjust" : "AI 2x"}</h2>
             </div>
             {mode === "local" ? <>
               <label className="control">
@@ -374,10 +380,19 @@ function Home() {
                 <input data-testid="denoise-slider" type="range" min="0" max="1" step="0.05" value={settings.denoise} onChange={(event) => updateSetting("denoise", Number(event.target.value))} />
                 <output>{settings.denoise.toFixed(2)}</output>
               </label>
-            </> : <div className="ai-notice">
-              <strong>One fixed, tested workflow</strong>
-              <span>Real-ESRGAN first creates model-assisted detail, then returns a practical 2x WebP. No face restoration or true motion deblur is used.</span>
-            </div>}
+            </> : <>
+              <div className="quality-switch" role="group" aria-label="AI quality mode">
+                <button type="button" className={aiQuality === "quality" ? "selected" : ""} aria-pressed={aiQuality === "quality"} onClick={() => setAiQuality("quality")} disabled={busy}>High Quality</button>
+                <button type="button" className={aiQuality === "fast" ? "selected" : ""} aria-pressed={aiQuality === "fast"} onClick={() => setAiQuality("fast")} disabled={busy}>Fast</button>
+              </div>
+              <div className="ai-notice">
+                <strong>{aiQuality === "quality" ? "More detail, longer processing" : "Faster output, gentler detail"}</strong>
+                <span>{aiQuality === "quality"
+                  ? "Runs a stronger 4x detail pass, returns a practical 2x image, and blends in a faithful resize to reduce artifacts."
+                  : "Uses a native 2x model for faster processing. It may look smoother on fine texture or heavily compressed inputs."}</span>
+                <span>No face restoration or true motion deblur is used.</span>
+              </div>
+            </>}
             <label className="control">
               <span>Preview zoom</span>
               <input data-testid="zoom-slider" type="range" min="0.5" max="2.5" step="0.1" value={zoom} onChange={(event) => setZoom(Number(event.target.value))} />
@@ -411,8 +426,8 @@ function Home() {
             <dl className="facts">
               <div><dt>Input</dt><dd>{sourceFile ? `${sourceFile.name} (${Math.round(sourceFile.size / 1024)} KB)` : "None"}</dd></div>
               <div><dt>Output</dt><dd>{resultMeta}</dd></div>
-              <div><dt>Privacy</dt><dd>{mode === "local" ? "Processed locally in this browser." : "A resized derivative is sent to RunPod only when requested; no public result page."}</dd></div>
-              {mode === "ai" && <div><dt>Limit</dt><dd>Two best-effort jobs per network and server instance each day, one GPU worker at a time, prepaid RunPod credits only, with auto-pay off.</dd></div>}
+              {mode === "ai" && <div><dt>Result mode</dt><dd>{result?.aiQuality === "fast" ? "Fast" : result?.aiQuality === "quality" ? "High Quality" : "Not processed yet"}</dd></div>}
+              <div><dt>Privacy</dt><dd>{mode === "local" ? "Processed locally in this browser." : "A resized derivative is sent for processing only when requested; no public result page."}</dd></div>
             </dl>
           </aside>
         </section>
@@ -427,7 +442,7 @@ function Home() {
           <div>
             <h2>When to use a stronger AI workflow</h2>
             <p>
-              AI 2x mode uses a fixed Real-ESRGAN workflow on RunPod for super-resolution. It is a small, budget-capped beta, not face restoration or true motion deblur. Local Sharpen remains available when cloud capacity or monthly credits are exhausted.
+              AI 2x mode uses a tested super-resolution workflow. It is not face restoration or true motion deblur. Local Sharpen remains available whenever cloud processing is busy or temporarily unavailable.
             </p>
           </div>
         </section>
@@ -501,7 +516,7 @@ function Guide() {
         <li>Export PNG for transparent graphics, JPEG for photos, and WebP when web delivery matters.</li>
       </ol>
       <p>
-        Local Sharpen stays in your browser. AI 2x mode sends a resized derivative to a fixed Real-ESRGAN workflow on RunPod only after you request it. Model output may add plausible detail and should not be treated as a truthful reconstruction.
+        Local Sharpen stays in your browser. AI 2x sends a resized derivative only after you request it. High Quality uses a stronger detail pass for the default result; Fast uses a lighter native 2x pass when turnaround matters more. Both are fixed, tested super-resolution workflows, not face restoration or true motion deblur. Model output may add plausible detail and should not be treated as a truthful reconstruction.
       </p>
     </article>
   );
@@ -526,7 +541,7 @@ function Privacy() {
       </p>
       <h2>RunPod AI 2x beta</h2>
       <p>
-        Before upload, the browser reduces the image to at most about 1 megapixel and encodes a WebP derivative. The server validates the decoded MIME, dimensions, animation, and transparency, strips metadata, and sends the derivative to RunPod for a fixed ComfyUI and Real-ESRGAN workflow. RunPod may process data in an available infrastructure region. Job results may remain retrievable from RunPod's status endpoint for up to 30 minutes under its current Serverless behavior. The site does not add durable image storage; ordinary provider security and billing logs may follow the provider's separate retention practices.
+        Before upload, the browser reduces the image to at most about 1 megapixel and encodes a WebP derivative. The server validates the decoded MIME, dimensions, animation, and transparency, strips metadata, and sends the derivative to RunPod for one of two fixed ComfyUI and Real-ESRGAN workflows selected by the user. RunPod may process data in an available infrastructure region. Job results may remain retrievable from RunPod's status endpoint for up to 30 minutes under its current Serverless behavior. The site does not add durable image storage; ordinary provider security and billing logs may follow the provider's separate retention practices.
       </p>
     </article>
   );
@@ -544,11 +559,11 @@ function Terms() {
       </p>
       <h2>Acceptable use</h2>
       <p>
-        Do not use the site to infringe copyright, impersonate people, harass others, create deceptive identity documents, or process illegal content. The site has no public posting feature. Cloud AI capacity may be limited or unavailable when the monthly prepaid budget is exhausted.
+        Do not use the site to infringe copyright, impersonate people, harass others, create deceptive identity documents, or process illegal content. The site has no public posting feature. Cloud AI processing may occasionally be busy or unavailable.
       </p>
       <h2>Availability</h2>
       <p>
-        Browser memory, file size, image dimensions, and device performance can affect output. The site is provided without warranty and may change as the product is tested.
+        Browser memory, file size, image dimensions, device performance, and cloud service availability can affect output. AI results may contain estimated detail. The site is provided without warranty and may change as the product is tested.
       </p>
     </article>
   );

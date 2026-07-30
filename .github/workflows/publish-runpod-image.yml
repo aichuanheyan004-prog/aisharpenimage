@@ -43,7 +43,7 @@ jobs:
           provenance: mode=max
           sbom: true
           tags: |
-            ${{ env.IMAGE_NAME }}:runpod-comfyui-5.8.6-realesrgan-x4plus
+            ${{ env.IMAGE_NAME }}:runpod-comfyui-5.8.6-realesrgan-x2plus
             ${{ env.IMAGE_NAME }}:runpod-${{ github.sha }}
           labels: |
             org.opencontainers.image.source=https://github.com/aichuanheyan004-prog/aisharpenimage

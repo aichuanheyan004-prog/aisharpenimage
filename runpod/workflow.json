@@ -12,24 +12,38 @@
   "3": {
     "inputs": { "upscale_model": ["2", 0], "image": ["1", 0] },
     "class_type": "ImageUpscaleWithModel",
-    "_meta": { "title": "AI 4x restoration" }
+    "_meta": { "title": "AI 4x detail pass" }
   },
   "4": {
     "inputs": { "image": ["3", 0], "upscale_method": "lanczos", "scale_by": 0.5 },
     "class_type": "ImageScaleBy",
-    "_meta": { "title": "Return a practical 2x output" }
+    "_meta": { "title": "Downsample AI detail to 2x" }
   },
   "5": {
+    "inputs": { "image": ["1", 0], "upscale_method": "lanczos", "scale_by": 2 },
+    "class_type": "ImageScaleBy",
+    "_meta": { "title": "Faithful 2x reference" }
+  },
+  "6": {
     "inputs": {
-      "images": ["4", 0],
+      "image1": ["5", 0],
+      "image2": ["4", 0],
+      "blend_factor": 0.85,
+      "blend_mode": "normal"
+    },
+    "class_type": "ImageBlend",
+    "_meta": { "title": "Reduce artifacts while retaining AI detail" }
+  },
+  "7": {
+    "inputs": {
+      "images": ["6", 0],
       "filename_prefix": "aisharpenimage",
       "fps": 1,
       "lossless": false,
-      "quality": 82,
+      "quality": 86,
       "method": "default"
     },
     "class_type": "SaveAnimatedWEBP",
     "_meta": { "title": "Save compact WebP result" }
   }
 }
-

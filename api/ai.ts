@@ -3,6 +3,7 @@ import {
   createRunpodInput,
   extractRunpodImage,
   normalizeRunpodStatus,
+  parseAiQualityMode,
   sanitizeAiInput,
   validateJobId
 } from "../server/aiCore.js";
@@ -115,28 +116,29 @@ export default async function handler(request: ApiRequest, response: ApiResponse
     return;
   }
   if (!env("RUNPOD_API_KEY") || !env("RUNPOD_ENDPOINT_ID")) {
-    response.status(503).json({ error: "The limited AI beta is not configured yet. Use Local Sharpen for now." });
+    response.status(503).json({ error: "AI enhancement is temporarily unavailable. Use Local Sharpen for now." });
     return;
   }
 
   try {
     if (request.method === "POST") {
-      const body = request.body as { image?: unknown } | undefined;
+      const body = request.body as { image?: unknown; mode?: unknown } | undefined;
       const input = await sanitizeAiInput(body?.image);
+      const mode = parseAiQualityMode(body?.mode);
       pruneOutstandingJobs();
       if (outstandingJobs.size >= MAX_OUTSTANDING_JOBS_PER_RUNTIME) {
         response.setHeader("Retry-After", "30");
-        response.status(503).json({ error: "The limited AI queue is full. Try Local Sharpen or return later." });
+        response.status(503).json({ error: "AI enhancement is busy. Try Local Sharpen or return later." });
         return;
       }
       if (!checkRateLimit(request)) {
         response.setHeader("Retry-After", "86400");
-        response.status(429).json({ error: "This network has reached the limited AI beta allowance for today." });
+        response.status(429).json({ error: "This network has reached today's complimentary AI allowance." });
         return;
       }
       const result = await runpodRequest("/run", {
         method: "POST",
-        body: JSON.stringify(createRunpodInput(input))
+        body: JSON.stringify(createRunpodInput(input, mode))
       }) as { id?: unknown; status?: unknown };
       const id = validateJobId(result.id);
       outstandingJobs.set(id, Date.now());
@@ -175,7 +177,7 @@ export default async function handler(request: ApiRequest, response: ApiResponse
     const message = error instanceof Error ? error.message : "The AI service could not complete the request.";
     const clientError = /required|valid|match|limit|large|transparent|animated|job ID|input buffer|corrupt|unsupported/i.test(message);
     response.status(clientError ? 400 : 502).json({
-      error: clientError ? message : "The RunPod AI worker is temporarily unavailable. No automatic retry was made."
+      error: clientError ? message : "The cloud AI worker is temporarily unavailable. No automatic retry was made."
     });
   }
 }
