@@ -5,7 +5,7 @@ import {
   normalizeRunpodStatus,
   sanitizeAiInput,
   validateJobId
-} from "../server/aiCore";
+} from "../server/aiCore.js";
 
 type ApiRequest = {
   method?: string;
