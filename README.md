@@ -5,7 +5,7 @@ Image sharpening site for https://www.aisharpenimage.net/ with two explicit mode
 - Local Sharpen: browser-local Canvas processing with no image upload.
 - AI 2x beta: a resized derivative goes through a fixed Real-ESRGAN ComfyUI workflow on RunPod Serverless.
 
-The cloud beta has no end-user payment flow. Its infrastructure exposure is capped by a one-time USD 10 RunPod balance, the provider's minimum card transaction, with auto-pay disabled. The operating target is no more than USD 5 of GPU usage per month and no recharge without a new approval. See `docs/decision-record.md`, `docs/risk-compliance.md`, and `runpod/README.md` before deployment.
+The cloud beta has no end-user payment flow. Its infrastructure exposure is capped by the existing one-time USD 10 RunPod prepaid balance, with auto-pay disabled and no additional recharge authorized. See `docs/decision-record.md`, `docs/risk-compliance.md`, and `runpod/README.md` before deployment.
 
 ## Local development
 

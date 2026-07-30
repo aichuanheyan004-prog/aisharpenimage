@@ -8,7 +8,8 @@ The AI beta uses a public derivative of RunPod's `runpod/worker-comfyui:5.8.6-ba
 - Active workers: 0
 - Max workers: 1
 - Idle timeout: 5 seconds
-- Execution timeout: 120 seconds
+- Execution timeout: 300 seconds
+- FlashBoot: enabled so an idle worker is paused instead of fully removed; the July 30, 2026 endpoint UI described this as included at no extra cost
 - Container disk: 30 GB (the compressed image layers exceed 11 GB)
 - Minimum CUDA version: 12.8
 - Network volume: none
@@ -24,9 +25,9 @@ AI_RATE_LIMIT_SALT=<random secret>
 AI_ALLOWED_ORIGINS=https://www.aisharpenimage.net
 ```
 
-Keep RunPod auto-pay disabled, use the existing one-time USD 10 prepaid balance for the initial test, and do not recharge without a new approval. The user's operating target remains no more than USD 5 of GPU usage per month even though RunPod required a USD 10 minimum card transaction. The prepaid provider balance is the final bill ceiling; the operating target must be reviewed manually because RunPod does not expose a native monthly hard cap. The in-process IP limit is only a best-effort availability control and is not durable across Vercel instances.
+Keep RunPod auto-pay disabled, use only the existing one-time USD 10 prepaid balance, and do not recharge without a new approval. The prepaid provider balance is the final bill ceiling because RunPod does not expose a native monthly hard cap. The in-process IP limit is only a best-effort availability control and is not durable across Vercel instances.
 
-At the observed July 30, 2026 Serverless prices, the selected 24 GB classes were approximately USD 0.69/hour for standard and USD 1.10/hour for PRO. The existing USD 10 balance is a cash ceiling, not a usage target or a guaranteed number of successful images. Do not enable active workers or auto-pay for the initial test, and pause the AI beta when cumulative monthly GPU usage reaches USD 5.
+At the observed July 30, 2026 Serverless prices, the selected classes were approximately USD 0.58/hour for 16 GB, USD 0.69/hour for 24 GB standard, and USD 1.10/hour for 24 GB PRO. The existing USD 10 balance is a cash ceiling, not a guaranteed number of successful images. Keep active workers at zero and auto-pay disabled; pause the cloud beta when the prepaid balance is exhausted or billing behavior differs materially from the measured jobs.
 
 The Vercel proxy allows at most two outstanding jobs per runtime in addition to its best-effort daily network allowance. These counters reset and are not shared across serverless instances. They reduce ordinary queue buildup but are not a global abuse or billing control. The endpoint balance must remain prepaid-only.
 

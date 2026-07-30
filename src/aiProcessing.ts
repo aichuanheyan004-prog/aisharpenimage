@@ -2,7 +2,7 @@ export const AI_SOURCE_MAX_PIXELS = 1_000_000;
 export const AI_SOURCE_MAX_EDGE = 1_600;
 export const AI_UPLOAD_MAX_BYTES = 1_250_000;
 export const AI_POLL_INTERVAL_MS = 1_500;
-export const AI_POLL_TIMEOUT_MS = 120_000;
+export const AI_POLL_TIMEOUT_MS = 300_000;
 
 export type AiJobStatus = "queued" | "processing" | "completed" | "failed" | "canceled";
 
@@ -127,4 +127,3 @@ export function dataUrlToBlob(dataUrl: string): Blob {
   for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
   return new Blob([bytes], { type: match[1] });
 }
-
