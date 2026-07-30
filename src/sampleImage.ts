@@ -42,10 +42,9 @@ export function createSampleFile(): File {
   ctx.drawImage(blurred, 0, 0);
   ctx.filter = "none";
 
-  const dataUrl = canvas.toDataURL("image/png");
+  const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
   const bytes = atob(dataUrl.split(",")[1]);
   const array = new Uint8Array(bytes.length);
   for (let i = 0; i < bytes.length; i += 1) array[i] = bytes.charCodeAt(i);
-  return new File([array], "sample-soft-product-photo.png", { type: "image/png" });
+  return new File([array], "sample-soft-product-photo.jpg", { type: "image/jpeg" });
 }
-
