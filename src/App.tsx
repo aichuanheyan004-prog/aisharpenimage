@@ -12,6 +12,16 @@ import {
   X
 } from "lucide-react";
 import {
+  AI_POLL_INTERVAL_MS,
+  AI_POLL_TIMEOUT_MS,
+  PreparedAiUpload,
+  cancelAiJob,
+  dataUrlToBlob,
+  getAiJob,
+  prepareAiUpload,
+  startAiJob
+} from "./aiProcessing";
+import {
   OutputFormat,
   SharpenSettings,
   decodeBitmap,
@@ -30,6 +40,8 @@ type ResultState = {
   name: string;
 };
 
+type ToolMode = "local" | "ai";
+
 const defaultSettings: SharpenSettings = {
   strength: 1.15,
   radius: 1,
@@ -39,6 +51,25 @@ const defaultSettings: SharpenSettings = {
 };
 
 const page = () => window.location.pathname.replace(/\/$/, "") || "/";
+
+function waitForPoll(delay: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const timeout = window.setTimeout(resolve, delay);
+    signal.addEventListener("abort", () => {
+      window.clearTimeout(timeout);
+      reject(new DOMException("Canceled", "AbortError"));
+    }, { once: true });
+  });
+}
+
+function aiOutputName(inputName: string): string {
+  const base = (inputName || "image")
+    .replace(/\.[^.]+$/, "")
+    .replace(/[^\w.-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80) || "image";
+  return `${base}-ai-2x.webp`;
+}
 
 export function App() {
   const route = page();
@@ -50,6 +81,7 @@ export function App() {
 }
 
 function Home() {
+  const [mode, setMode] = useState<ToolMode>("local");
   const [settings, setSettings] = useState(defaultSettings);
   const [sourceFile, setSourceFile] = useState<File | null>(null);
   const [sourceBlob, setSourceBlob] = useState<Blob | null>(null);
@@ -59,7 +91,10 @@ function Home() {
   const [busy, setBusy] = useState(false);
   const [compare, setCompare] = useState(50);
   const [zoom, setZoom] = useState(1);
+  const [preparedAi, setPreparedAi] = useState<PreparedAiUpload | null>(null);
   const abortRef = useRef(0);
+  const aiAbortRef = useRef<AbortController | null>(null);
+  const aiJobRef = useRef<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const sourceUrl = useObjectUrl(sourceBlob);
@@ -86,8 +121,20 @@ function Home() {
     setSourceFile(file);
     setSourceBlob(file);
     setResult(null);
+    setPreparedAi(null);
 
     try {
+      if (mode === "ai") {
+        const controller = new AbortController();
+        aiAbortRef.current = controller;
+        setStatus("Preparing a resized WebP copy in this browser...");
+        const prepared = await prepareAiUpload(file, controller.signal);
+        if (abortRef.current !== runId) return;
+        setPreparedAi(prepared);
+        setStatus(`Ready for AI 2x. The upload copy is ${prepared.width} x ${prepared.height}px and ${Math.round(prepared.bytes / 1024)} KB.`);
+        return;
+      }
+
       const bitmap = await decodeBitmap(file);
       if (abortRef.current !== runId) return;
       setStatus("Sharpening pixels locally...");
@@ -100,12 +147,20 @@ function Home() {
       setError(nextError instanceof Error ? nextError.message : "The image could not be processed.");
       setStatus("Processing failed.");
     } finally {
-      if (abortRef.current === runId) setBusy(false);
+      if (abortRef.current === runId) {
+        setBusy(false);
+        aiAbortRef.current = null;
+      }
     }
   }
 
   function cancelWork() {
     abortRef.current += 1;
+    aiAbortRef.current?.abort();
+    aiAbortRef.current = null;
+    const jobId = aiJobRef.current;
+    aiJobRef.current = null;
+    if (jobId) void cancelAiJob(jobId);
     setBusy(false);
     setStatus("Canceled.");
   }
@@ -115,12 +170,86 @@ function Home() {
     setSourceFile(null);
     setSourceBlob(null);
     setResult(null);
+    setPreparedAi(null);
     setError("");
     setBusy(false);
     setCompare(50);
     setZoom(1);
     setSettings(defaultSettings);
-    setStatus("Drop, paste, or choose an image to begin.");
+    setStatus(mode === "ai" ? "Choose an image to prepare a limited AI 2x job." : "Drop, paste, or choose an image to begin.");
+  }
+
+  function switchMode(nextMode: ToolMode) {
+    if (nextMode === mode) return;
+    cancelWork();
+    setMode(nextMode);
+    setSourceFile(null);
+    setSourceBlob(null);
+    setResult(null);
+    setPreparedAi(null);
+    setError("");
+    setCompare(50);
+    setZoom(1);
+    setStatus(nextMode === "ai" ? "Choose an image to prepare a limited AI 2x job." : "Drop, paste, or choose an image to begin.");
+  }
+
+  async function runAi() {
+    if (!preparedAi || !sourceFile || busy) return;
+    const controller = new AbortController();
+    aiAbortRef.current = controller;
+    setBusy(true);
+    setError("");
+    setResult(null);
+    setStatus("Uploading the resized copy to the RunPod AI worker...");
+    const startedAt = Date.now();
+
+    try {
+      const job = await startAiJob(preparedAi, controller.signal);
+      aiJobRef.current = job.id;
+      setStatus(job.status === "processing" ? "AI enhancement is running..." : "AI job is queued. A cold start may take longer.");
+
+      while (Date.now() - startedAt < AI_POLL_TIMEOUT_MS) {
+        await waitForPoll(AI_POLL_INTERVAL_MS, controller.signal);
+        const current = await getAiJob(job.id, controller.signal);
+        if (current.status === "queued") {
+          setStatus("AI job is queued. A cold start may take longer.");
+          continue;
+        }
+        if (current.status === "processing") {
+          setStatus("AI 2x enhancement is running on RunPod...");
+          continue;
+        }
+        if (current.status === "failed" || current.status === "canceled") {
+          throw new Error(current.error || "The AI job did not complete.");
+        }
+        if (!current.resultDataUrl) throw new Error("The AI job completed without an image.");
+
+        const blob = dataUrlToBlob(current.resultDataUrl);
+        const resultFile = new File([blob], aiOutputName(sourceFile.name), { type: blob.type });
+        const bitmap = await decodeBitmap(resultFile);
+        const width = bitmap.width;
+        const height = bitmap.height;
+        bitmap.close();
+        setResult({ blob, width, height, changedPixels: 0, name: resultFile.name });
+        setStatus("Ready. AI 2x output is model-assisted and may contain estimated detail.");
+        aiJobRef.current = null;
+        return;
+      }
+      const timedOutJob = aiJobRef.current;
+      aiJobRef.current = null;
+      if (timedOutJob) await cancelAiJob(timedOutJob);
+      throw new Error("The AI job timed out. It was not submitted again.");
+    } catch (nextError) {
+      if (nextError instanceof DOMException && nextError.name === "AbortError") {
+        setStatus("Canceled.");
+      } else {
+        setError(nextError instanceof Error ? nextError.message : "The AI service could not complete the request.");
+        setStatus("AI processing failed. The local sharpener is still available.");
+      }
+    } finally {
+      if (aiAbortRef.current === controller) aiAbortRef.current = null;
+      setBusy(false);
+    }
   }
 
   async function reprocess(nextSettings = settings) {
@@ -168,15 +297,21 @@ function Home() {
       <main>
         <section className="tool-layout" aria-labelledby="home-title">
           <div className="workspace">
+            <div className="mode-switch" role="group" aria-label="Processing mode">
+              <button className={mode === "local" ? "selected" : ""} type="button" onClick={() => switchMode("local")} aria-pressed={mode === "local"}>Local Sharpen</button>
+              <button className={mode === "ai" ? "selected" : ""} type="button" onClick={() => switchMode("ai")} aria-pressed={mode === "ai"}>AI 2x Enhance</button>
+            </div>
             <div className="title-row">
               <div>
-                <p className="eyebrow">Private browser tool</p>
+                <p className="eyebrow">{mode === "local" ? "Private browser tool" : "Limited cloud GPU beta"}</p>
                 <h1 id="home-title">AI Sharpen Image Online</h1>
                 <p className="intro">
-                  Sharpen soft photos and graphics in your browser. The free tool uses local edge contrast and light denoise processing; it does not upload images or claim to recover details that are not in the file.
+                  {mode === "local"
+                    ? "Sharpen soft photos and graphics in your browser. Local mode uses edge contrast and light denoise processing without uploading the selected image."
+                    : "Create a model-assisted 2x WebP with Real-ESRGAN on a RunPod GPU. A resized copy is uploaded only after you press Run AI 2x; output may contain estimated detail."}
                 </p>
               </div>
-              <div className="privacy-badge"><ShieldCheck size={18} /> No upload for this tool</div>
+              <div className={`privacy-badge ${mode === "ai" ? "cloud" : ""}`}><ShieldCheck size={18} /> {mode === "local" ? "No upload in Local mode" : "Uploads resized copy on command"}</div>
             </div>
 
             <div
@@ -192,7 +327,7 @@ function Home() {
               <input ref={inputRef} className="file-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={onFileChange} />
               <Upload size={28} />
               <strong>Drop, paste, or choose an image</strong>
-              <span>JPEG, PNG, or WebP up to 12 MB and 18 megapixels</span>
+              <span>{mode === "local" ? "JPEG, PNG, or WebP up to 12 MB and 18 megapixels" : "JPEG, PNG, or WebP; upload copy is reduced to 1 megapixel"}</span>
             </div>
 
             <div className="status-line" role="status" aria-live="polite">
@@ -223,37 +358,42 @@ function Home() {
             </label>
           </div>
 
-          <aside className="controls" aria-label="Sharpening controls">
+          <aside className="controls" aria-label={mode === "local" ? "Sharpening controls" : "AI enhancement controls"}>
             <div className="panel-title">
               <Sparkles size={18} />
-              <h2>Adjust</h2>
+              <h2>{mode === "local" ? "Adjust" : "AI 2x beta"}</h2>
             </div>
-            <label className="control">
-              <span>Sharpness</span>
-              <input data-testid="sharpness-slider" type="range" min="0" max="2.5" step="0.05" value={settings.strength} onChange={(event) => updateSetting("strength", Number(event.target.value))} />
-              <output>{settings.strength.toFixed(2)}</output>
-            </label>
-            <label className="control">
-              <span>Light denoise</span>
-              <input data-testid="denoise-slider" type="range" min="0" max="1" step="0.05" value={settings.denoise} onChange={(event) => updateSetting("denoise", Number(event.target.value))} />
-              <output>{settings.denoise.toFixed(2)}</output>
-            </label>
+            {mode === "local" ? <>
+              <label className="control">
+                <span>Sharpness</span>
+                <input data-testid="sharpness-slider" type="range" min="0" max="2.5" step="0.05" value={settings.strength} onChange={(event) => updateSetting("strength", Number(event.target.value))} />
+                <output>{settings.strength.toFixed(2)}</output>
+              </label>
+              <label className="control">
+                <span>Light denoise</span>
+                <input data-testid="denoise-slider" type="range" min="0" max="1" step="0.05" value={settings.denoise} onChange={(event) => updateSetting("denoise", Number(event.target.value))} />
+                <output>{settings.denoise.toFixed(2)}</output>
+              </label>
+            </> : <div className="ai-notice">
+              <strong>One fixed, tested workflow</strong>
+              <span>Real-ESRGAN first creates model-assisted detail, then returns a practical 2x WebP. No face restoration or true motion deblur is used.</span>
+            </div>}
             <label className="control">
               <span>Preview zoom</span>
               <input data-testid="zoom-slider" type="range" min="0.5" max="2.5" step="0.1" value={zoom} onChange={(event) => setZoom(Number(event.target.value))} />
               <output>{Math.round(zoom * 100)}%</output>
             </label>
-            <label className="select-label">
+            {mode === "local" && <label className="select-label">
               <span>Output</span>
               <select value={settings.outputFormat} onChange={(event) => updateSetting("outputFormat", event.target.value as OutputFormat)}>
                 <option value="image/png">PNG</option>
                 <option value="image/jpeg">JPEG</option>
                 <option value="image/webp">WebP</option>
               </select>
-            </label>
+            </label>}
             <div className="button-grid">
-              <button className="primary" type="button" onClick={() => void reprocess()} disabled={!sourceFile || busy}>
-                <RefreshCcw size={17} /> Apply
+              <button className="primary" type="button" onClick={() => mode === "local" ? void reprocess() : void runAi()} disabled={mode === "local" ? !sourceFile || busy : !preparedAi || busy}>
+                <RefreshCcw size={17} /> {mode === "local" ? "Apply" : "Run AI 2x"}
               </button>
               <button type="button" onClick={loadSample} disabled={busy}>
                 <ImageIcon size={17} /> Example
@@ -271,7 +411,8 @@ function Home() {
             <dl className="facts">
               <div><dt>Input</dt><dd>{sourceFile ? `${sourceFile.name} (${Math.round(sourceFile.size / 1024)} KB)` : "None"}</dd></div>
               <div><dt>Output</dt><dd>{resultMeta}</dd></div>
-              <div><dt>Privacy</dt><dd>Processed locally in this browser.</dd></div>
+              <div><dt>Privacy</dt><dd>{mode === "local" ? "Processed locally in this browser." : "A resized derivative is sent to RunPod only when requested; no public result page."}</dd></div>
+              {mode === "ai" && <div><dt>Limit</dt><dd>Two best-effort jobs per network and server instance each day, one GPU worker, USD 5 prepaid ceiling.</dd></div>}
             </dl>
           </aside>
         </section>
@@ -286,7 +427,7 @@ function Home() {
           <div>
             <h2>When to use a stronger AI workflow</h2>
             <p>
-              Real deblurring, face restoration, and super-resolution require a suitable model. A future ComfyUI or GPU workflow may be useful for larger or harder images, but it needs cost controls, upload privacy terms, rate limits, and a clear paid/free boundary before launch.
+              AI 2x mode uses a fixed Real-ESRGAN workflow on RunPod for super-resolution. It is a small, budget-capped beta, not face restoration or true motion deblur. Local Sharpen remains available when cloud capacity or monthly credits are exhausted.
             </p>
           </div>
         </section>
@@ -312,7 +453,7 @@ function Header() {
 function Footer() {
   return (
     <footer className="site-footer">
-      <span>© 2026 AI Sharpen Image</span>
+      <span>(c) 2026 AI Sharpen Image</span>
       <a href="/sitemap.xml">Sitemap</a>
     </footer>
   );
@@ -360,7 +501,7 @@ function Guide() {
         <li>Export PNG for transparent graphics, JPEG for photos, and WebP when web delivery matters.</li>
       </ol>
       <p>
-        This site keeps the free sharpener local to your browser. If server-side AI restoration is added later, the page will state the model route, upload purpose, retention period, and cost boundary before you use it.
+        Local Sharpen stays in your browser. AI 2x mode sends a resized derivative to a fixed Real-ESRGAN workflow on RunPod only after you request it. Model output may add plausible detail and should not be treated as a truthful reconstruction.
       </p>
     </article>
   );
@@ -373,19 +514,19 @@ function Privacy() {
       <h1>Privacy Policy</h1>
       <p>Last updated: July 30, 2026.</p>
       <p>
-        The current free image sharpener runs in your browser. Selected images are decoded and processed locally with Canvas APIs. They are not uploaded to our server by this tool.
+        Local Sharpen runs in your browser. Selected images are decoded and processed locally with Canvas APIs and are not uploaded by that mode. AI 2x mode is separate and uploads only after you press Run AI 2x.
       </p>
       <h2>What we collect</h2>
       <p>
-        We do not collect image files, image contents, filenames, or generated outputs. Standard hosting logs may include IP address, user agent, requested URL, timestamp, and error status for security and reliability.
+        We do not create public result pages or intentionally log image contents or filenames. Standard Vercel and RunPod service logs may include request metadata, timestamps, job IDs, status, runtime, IP address, and user agent for security, billing, and reliability.
       </p>
       <h2>Storage</h2>
       <p>
         The tool creates temporary browser object URLs for preview and download. They are revoked when you replace the image, reset the tool, or leave the page. We do not create public result pages.
       </p>
-      <h2>Future server-side AI</h2>
+      <h2>RunPod AI 2x beta</h2>
       <p>
-        If a ComfyUI, GPU, or external AI API feature is added, this policy will be updated before launch with upload purpose, provider, region where known, retention period, deletion mechanism, limits, and paid/free terms.
+        Before upload, the browser reduces the image to at most about 1 megapixel and encodes a WebP derivative. The server validates the decoded MIME, dimensions, animation, and transparency, strips metadata, and sends the derivative to RunPod for a fixed ComfyUI and Real-ESRGAN workflow. RunPod may process data in an available infrastructure region. Job results may remain retrievable from RunPod's status endpoint for up to 30 minutes under its current Serverless behavior. The site does not add durable image storage; ordinary provider security and billing logs may follow the provider's separate retention practices.
       </p>
     </article>
   );
@@ -403,7 +544,7 @@ function Terms() {
       </p>
       <h2>Acceptable use</h2>
       <p>
-        Do not use the site to infringe copyright, impersonate people, harass others, create deceptive identity documents, or process illegal content. The current browser-local tool has no account, storage, or public posting feature.
+        Do not use the site to infringe copyright, impersonate people, harass others, create deceptive identity documents, or process illegal content. The site has no public posting feature. Cloud AI capacity may be limited or unavailable when the monthly prepaid budget is exhausted.
       </p>
       <h2>Availability</h2>
       <p>

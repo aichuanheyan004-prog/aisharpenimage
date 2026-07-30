@@ -49,19 +49,25 @@ Decision: postpone.
 
 Possible stack: ONNX Runtime Web/WebGPU/WASM plus a legally usable quantized super-resolution or deblur model. Package checks found ONNX Runtime Web available under MIT, but the real risk is model license, model size, first-load time, WebGPU availability, mobile memory, CDN bandwidth, and output consistency. This route needs a separate model-license and browser-performance spike before any claim.
 
-### 3. Server GPU / ComfyUI / external API
+### 3. RunPod Serverless GPU / ComfyUI
 
-Decision: plan only; do not launch without user budget approval.
+Decision: test small, authorized by the user on July 30, 2026 with a USD 5 prepaid ceiling. Do not use a paid closed-model API.
 
-ComfyUI can accept workflow JSON in API format and queue prompts through routes such as `/prompt`, according to current ComfyUI documentation. This could enable true AI upscaling/deblur later without paying a closed paid AI image model if self-hosted or rented GPU economics work. It still creates GPU, storage, upload, queue, abuse, privacy, and support cost.
+The beta uses RunPod Serverless, the official `worker-comfyui` image, and the BSD-3-Clause `RealESRGAN_x4plus.pth` model. The browser creates an approximately 1 MP WebP derivative; the Vercel API decodes it with `sharp`, verifies actual type and dimensions, rejects animation/transparency, rotates from EXIF, strips metadata, and submits only a fixed workflow. Real-ESRGAN performs model-assisted 4x super-resolution and ComfyUI downsamples to a practical 2x WebP. This is not face restoration, forensic recovery, or true motion deblur.
 
-Required controls before launch: file size and pixel caps, MIME decode validation, image-bomb defense, EXIF/metadata policy, timeout, per-IP/device/account limits, queue cap, signed short-lived URLs, minimum retention, deletion policy, no duplicate billing on failure, monthly budget breaker, alerts, bot/proxy abuse controls, NSFW/illegal-content boundary, and logs that do not store image contents. Browser fingerprinting may only be one privacy-disclosed signal, not the only defense.
+RunPod's current Serverless API provides `/run`, `/status/{jobId}`, and `/cancel/{jobId}`. Serverless scales to zero and bills by execution time. One flex worker, zero active workers, max workers one, and a 120-second execution timeout constrain concurrency. The site does not retry failed submissions automatically, preventing duplicate GPU charges.
+
+Controls: 1.25 MB prepared upload, 1 MP and 1600 px edge server limits, real MIME decode, image-bomb limit, metadata removal, 120-second client timeout and cancellation, fixed workflow/model allowlist, one-worker queue, origin allowlist, best-effort hashed-IP allowance, no image-content logs, no public outputs, no durable site storage, and a prepaid provider balance as the cost breaker. Browser fingerprinting is not used. The in-memory Vercel rate limit is not durable and is not treated as the billing boundary.
 
 ## Cost And Payment Decision
 
-MVP payment decision: no login, no payment, no ads at launch.
+MVP payment decision: no user login, no checkout, no ads at launch. Local Sharpen remains free and has no marginal inference cost. AI 2x is a small free beta funded only by a manually prepaid RunPod balance.
 
-Reason: the selected MVP has zero marginal inference cost, no server upload/storage, and no billable AI abuse surface. Lower startup friction is more valuable than charging early. Track GSC impressions, task starts, valid completions, failure reasons, downloads, device/browser compatibility, and real quality feedback first.
+RunPod pricing check: official RunPod pages observed July 30, 2026 showed the cheapest 16 GB Serverless class at approximately USD 0.58 per GPU-hour, billed per second. A USD 5 balance therefore represents at most about 8.6 billed GPU-hours before cold-start and other execution effects; it does not guarantee a number of successful images. RunPod does not provide a native USD 5 monthly hard limit, so the enforceable setup is: deposit only USD 5, disable auto-pay, enable a low-balance alert, use zero active workers, and stop when credits reach zero. No recharge is authorized without a new user confirmation.
+
+Illustrative compute-only scenarios at USD 0.58/hour: 20 billed seconds is about USD 0.0032 per job, 60 seconds about USD 0.0097, and the full 120-second timeout about USD 0.0193. These exclude failed work, cold-start behavior, data transfer, tax, and future price changes. Measure actual billed seconds and completed outputs before setting any free allowance. The USD 5 deposit does not reset monthly; maintaining a USD 5/month policy requires a deliberate manual review and at most one approved top-up per month.
+
+Vercel's current request and response payload limit is 4.5 MB. The client reduces inputs before upload, the API caps request data, and output is a quality-82 WebP capped below that boundary. The best-effort per-IP/runtime limiter helps availability but cannot resist distributed proxies or guarantee quota consistency across serverless instances. The prepaid balance remains the only reliable bill ceiling.
 
 Future paid features, only after separate approval: batch processing, huge images, 4x/high-quality models, GPU fast queue, private history, API, commercial workflows, and ad-free/priority use. Before payments: Stripe terms, refunds, tax, privacy, customer support, GPU/storage/bandwidth cost, fraud/chargeback handling, and stop thresholds.
 
@@ -71,7 +77,9 @@ Future paid features, only after separate approval: batch processing, huge image
 - JPEG/PNG/WebP input, 12 MB and 18 MP limits.
 - Drag/drop, choose, paste, example image.
 - Before/after comparison, zoom, sharpness, light denoise, output format, apply, cancel, reset, download.
-- Local processing statement is accurate: selected images are not uploaded by the free tool.
+- Local mode accurately states that selected images are not uploaded. AI mode uploads only a resized derivative after explicit action.
+- AI 2x uses the fixed Real-ESRGAN workflow, provides queued/running/failed/canceled states, and falls back to Local Sharpen when unavailable.
+- AI inputs are capped at about 1 MP; animated and transparent images are rejected from AI mode and remain eligible for local processing where supported.
 - Transparent PNG alpha is preserved.
 - Broken or disguised files fail cleanly.
 - Desktop and 390px mobile layout has no horizontal overflow.
@@ -96,16 +104,28 @@ No independent `unblur image`, `AI image enhancer`, `photo sharpener`, or `image
 - MDN Canvas APIs: `getImageData()`, `putImageData()`, `createImageBitmap()`.
 - Google Search Central: canonical URLs and structured data guidelines.
 - Vercel project configuration: `vercel.json`, redirects, headers, clean URLs.
-- ComfyUI documentation: workflows as API-format JSON and prompt queue routes.
+- RunPod Serverless overview, pricing, billing, account limits, and ComfyUI Serverless guide, checked July 30, 2026.
+- RunPod `worker-comfyui` release 5.8.6 and AGPL-3.0 license.
+- Real-ESRGAN release `v0.1.0`, `RealESRGAN_x4plus.pth`, BSD-3-Clause license.
+- Vercel Functions request/response body limit documentation, checked July 30, 2026.
+
+Official source URLs:
+
+- <https://docs.runpod.io/serverless/overview>
+- <https://www.runpod.io/pricing>
+- <https://docs.runpod.io/serverless/workers/comfyui>
+- <https://github.com/runpod-workers/worker-comfyui/releases/tag/5.8.6>
+- <https://github.com/xinntao/Real-ESRGAN/releases/tag/v0.1.0>
+- <https://vercel.com/docs/functions/limitations>
 
 ## Launch Metrics
 
 - Search: impressions, clicks, non-brand queries, selected canonical, sitemap status.
 - Product: tool start, valid file, success, error reason, cancel, download, output format, device class.
-- Risk/cost: no server image storage or model cost in MVP.
+- Risk/cost: RunPod billed seconds, failed/canceled jobs, balance remaining, 429/5xx rate, proxy abuse signals, and average GPU seconds per completed image. Do not record image contents or filenames.
 
 ## Expansion And Stop Thresholds
 
 7-day review: production status, errors, GSC sitemap processing, mobile failures, download completion, privacy copy alignment.  
-30-day review: query mix, pages with impressions, task completion, requests for real AI deblur/upscale, and whether ComfyUI/GPU cost modeling justifies a paid beta.  
-Stop or redesign if users expect true AI restoration and the free tool disappoints, if mobile memory failures dominate, or if search impressions cluster around unblur/upscale terms the current product does not honestly satisfy.
+30-day review: query mix, pages with impressions, local versus AI completion/download rates, average GPU seconds, cost per completed image, proxy abuse, and demand for higher limits.
+Pause AI immediately if the prepaid balance is exhausted, provider spend differs from expected billing, failure rate exceeds 20% over 20 jobs, median completed-job cost exceeds USD 0.05, prohibited-use complaints appear, or provider retention/privacy behavior cannot be verified. Keep Local Sharpen available. Do not add payments until a separate Stripe/refund/tax/privacy/support/fraud and GPU/storage/bandwidth review is approved.
