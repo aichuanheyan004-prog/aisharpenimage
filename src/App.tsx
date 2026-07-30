@@ -428,7 +428,6 @@ function Home() {
               <div><dt>Output</dt><dd>{resultMeta}</dd></div>
               {mode === "ai" && <div><dt>Result mode</dt><dd>{result?.aiQuality === "fast" ? "Fast" : result?.aiQuality === "quality" ? "High Quality" : "Not processed yet"}</dd></div>}
               <div><dt>Privacy</dt><dd>{mode === "local" ? "Processed locally in this browser." : "A resized derivative is sent for processing only when requested; no public result page."}</dd></div>
-              {mode === "ai" && <div><dt>Free use</dt><dd>Up to two complimentary AI enhancements each day. Availability may vary.</dd></div>}
             </dl>
           </aside>
         </section>
