@@ -15,6 +15,7 @@ export type SanitizedAiInput = {
 export type RunpodStatus = "queued" | "processing" | "completed" | "failed" | "canceled";
 
 const DATA_URL_PATTERN = /^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$/;
+const RAW_BASE64_PATTERN = /^[A-Za-z0-9+/]+={0,2}$/;
 const JOB_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{7,127}$/;
 
 export function validateJobId(value: unknown): string {
@@ -128,11 +129,23 @@ export function extractRunpodImage(payload: unknown): string {
   const candidate = body.output?.images?.[0]?.data
     ?? body.output?.images?.[0]?.image
     ?? body.output?.message;
-  if (typeof candidate !== "string" || !DATA_URL_PATTERN.test(candidate)) {
+  if (typeof candidate !== "string") {
     throw new Error("RunPod completed the job without a supported image result.");
   }
   if (candidate.length > SERVER_AI_MAX_RESULT_CHARS) {
     throw new Error("The AI result exceeds the beta download limit. Try a smaller image.");
   }
-  return candidate;
+  if (DATA_URL_PATTERN.test(candidate)) return candidate;
+
+  if (candidate.length % 4 !== 0 || !RAW_BASE64_PATTERN.test(candidate)) {
+    throw new Error("RunPod completed the job without a supported image result.");
+  }
+  const bytes = Buffer.from(candidate, "base64");
+  const isWebp = bytes.length >= 12
+    && bytes.toString("ascii", 0, 4) === "RIFF"
+    && bytes.toString("ascii", 8, 12) === "WEBP";
+  if (!isWebp) {
+    throw new Error("RunPod completed the job without a supported image result.");
+  }
+  return `data:image/webp;base64,${candidate}`;
 }
