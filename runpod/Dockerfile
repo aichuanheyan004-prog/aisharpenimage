@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.7
-FROM runpod/worker-comfyui:5.8.6-base
+FROM runpod/worker-comfyui:5.8.6-base-cuda12.8.1
 
 USER root
 RUN mkdir -p /comfyui/models/upscale_models

@@ -1,6 +1,6 @@
 # RunPod deployment
 
-The AI beta uses RunPod Serverless with the official `runpod/worker-comfyui:5.8.6-base` image and the BSD-3-Clause Real-ESRGAN `RealESRGAN_x4plus.pth` weight.
+The AI beta uses RunPod Serverless with the official `runpod/worker-comfyui:5.8.6-base-cuda12.8.1` image and the BSD-3-Clause Real-ESRGAN `RealESRGAN_x4plus.pth` weight. The explicit CUDA 12.8.1 variant avoids pairing a newer PyTorch build with an older host driver.
 
 ## Required endpoint settings
 
@@ -9,6 +9,8 @@ The AI beta uses RunPod Serverless with the official `runpod/worker-comfyui:5.8.
 - Max workers: 1
 - Idle timeout: 5 seconds
 - Execution timeout: 120 seconds
+- Container disk: 30 GB (the compressed image layers exceed 11 GB)
+- Minimum CUDA version: 12.8
 - Network volume: none
 - Container image: build `runpod/Dockerfile` and pin the resulting immutable digest
 - API key: server-side only; never use it in the Vite client bundle
