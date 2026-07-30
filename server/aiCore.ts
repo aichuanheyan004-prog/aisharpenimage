@@ -46,7 +46,13 @@ export async function sanitizeAiInput(value: unknown): Promise<SanitizedAiInput>
     throw new Error("The prepared image exceeds the AI beta pixel limit.");
   }
   if ((metadata.pages ?? 1) !== 1) throw new Error("Animated images are not supported by the AI beta.");
-  if (metadata.hasAlpha) throw new Error("Transparent images are supported only by the local sharpener for now.");
+  if (metadata.hasAlpha) {
+    const imageStats = await image.clone().stats();
+    const alphaStats = imageStats.channels.at(-1);
+    if (!alphaStats || alphaStats.min < 255) {
+      throw new Error("Transparent images are supported only by the local sharpener for now.");
+    }
+  }
 
   const sanitized = await image.rotate().webp({ quality: 86, effort: 4 }).toBuffer();
   if (sanitized.length > SERVER_AI_MAX_BYTES) throw new Error("The sanitized AI upload is too large.");
@@ -130,4 +136,3 @@ export function extractRunpodImage(payload: unknown): string {
   }
   return candidate;
 }
-

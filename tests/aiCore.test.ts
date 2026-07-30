@@ -13,15 +13,17 @@ import {
   validateJobId
 } from "../server/aiCore";
 
-async function imageDataUrl(options: { format?: "png" | "jpeg"; width?: number; height?: number; alpha?: boolean } = {}) {
+async function imageDataUrl(options: { format?: "png" | "jpeg"; width?: number; height?: number; alpha?: number } = {}) {
   const format = options.format ?? "png";
-  const channels = options.alpha ? 4 : 3;
+  const channels = options.alpha === undefined ? 3 : 4;
   const buffer = await sharp({
     create: {
       width: options.width ?? 16,
       height: options.height ?? 12,
       channels,
-      background: options.alpha ? { r: 20, g: 40, b: 60, alpha: 0.5 } : { r: 20, g: 40, b: 60 }
+      background: options.alpha === undefined
+        ? { r: 20, g: 40, b: 60 }
+        : { r: 20, g: 40, b: 60, alpha: options.alpha }
     }
   })[format]().toBuffer();
   return `data:image/${format};base64,${buffer.toString("base64")}`;
@@ -40,8 +42,13 @@ describe("AI input validation", () => {
     expect(result).toMatchObject({ width: 16, height: 12 });
   });
 
+  it("accepts an opaque image even when its encoding includes an alpha channel", async () => {
+    const result = await sanitizeAiInput(await imageDataUrl({ alpha: 1 }));
+    expect(result.dataUrl).toMatch(/^data:image\/webp;base64,/);
+  });
+
   it("rejects transparent and over-limit images", async () => {
-    await expect(sanitizeAiInput(await imageDataUrl({ alpha: true }))).rejects.toThrow(/transparent/i);
+    await expect(sanitizeAiInput(await imageDataUrl({ alpha: 0.5 }))).rejects.toThrow(/transparent/i);
     await expect(sanitizeAiInput(await imageDataUrl({ width: 1601, height: 1 }))).rejects.toThrow(/limit/i);
   });
 });
@@ -69,4 +76,3 @@ describe("RunPod contract", () => {
     expect(() => extractRunpodImage({ output: {} })).toThrow(/without/i);
   });
 });
-
