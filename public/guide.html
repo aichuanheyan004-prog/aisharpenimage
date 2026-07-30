@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Image Sharpening Guide - AI Sharpen Image</title>
+    <meta name="description" content="Learn when to use sharpening, denoise, deblur, face restoration, and super-resolution, plus the limits and artifacts to watch for." />
+    <link rel="canonical" href="https://www.aisharpenimage.net/guide" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <meta property="og:title" content="Image Sharpening Guide" />
+    <meta property="og:description" content="A practical guide to sharpening, denoise, deblur, and upscaling limits." />
+    <meta property="og:url" content="https://www.aisharpenimage.net/guide" />
+    <meta property="og:image" content="https://www.aisharpenimage.net/og-image.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="stylesheet" href="/static-page.css" />
+  </head>
+  <body>
+    <header><a class="brand" href="/"><span>AI</span> Sharpen Image</a><nav><a href="/">Tool</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a></nav></header>
+    <main>
+      <article>
+        <p class="eyebrow">Image Sharpening Guide</p>
+        <h1>How image sharpening, denoise, deblur, and upscaling differ</h1>
+        <p>Sharpening boosts contrast around existing edges. Denoise smooths random speckle. Deblur estimates motion or focus blur. Super-resolution creates a larger image with model-assisted detail. These methods solve different problems and can all create artifacts.</p>
+        <h2>Sharpening</h2>
+        <p>Traditional sharpening, including unsharp-mask style processing, is fast and can run privately in the browser. It works best on slightly soft photos, scans, screenshots, and generated images. Strong settings can create halos, jagged edges, crunchy skin texture, and stronger JPEG artifacts.</p>
+        <h2>Denoise</h2>
+        <p>Denoise can help before sharpening because sharpening also amplifies noise. The tradeoff is texture loss: fabric, hair, paper grain, and product surfaces may look waxy if smoothing is too aggressive.</p>
+        <h2>Deblur and face restoration</h2>
+        <p>True motion deblur, focus correction, and face restoration require specialized models or heavier algorithms. Output may be useful, but it is still an estimate. It should not be treated as forensic proof that missing information was recovered exactly.</p>
+        <h2>Super-resolution and printing</h2>
+        <p>Upscaling increases pixel dimensions. It helps when a small image must be printed or placed in a larger design, but output quality depends on source quality, scale factor, model, and print size. Upscaling a noisy or compressed image can enlarge defects.</p>
+        <h2>Best workflow</h2>
+        <ol>
+          <li>Start with the largest original file you own or are authorized to edit.</li>
+          <li>Use light denoise only when noise is visible.</li>
+          <li>Increase sharpness until edges look clearer, then back off before halos appear.</li>
+          <li>Export PNG for transparent graphics, JPEG for photos, and WebP when web delivery matters.</li>
+        </ol>
+      </article>
+    </main>
+  </body>
+</html>
