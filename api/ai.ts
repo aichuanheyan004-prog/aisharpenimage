@@ -76,7 +76,12 @@ function originAllowed(request: ApiRequest): boolean {
     .filter(Boolean);
   const allowed = configured.length > 0
     ? configured
-    : ["https://www.aisharpenimage.net", "http://127.0.0.1:5176", "http://localhost:5176"];
+    : [
+        "https://www.aisharpenimage.net",
+        "https://aisharpenimage.vercel.app",
+        "http://127.0.0.1:5176",
+        "http://localhost:5176"
+      ];
   return allowed.includes(origin);
 }
 
