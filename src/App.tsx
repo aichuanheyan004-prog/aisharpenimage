@@ -412,7 +412,7 @@ function Home() {
               <div><dt>Input</dt><dd>{sourceFile ? `${sourceFile.name} (${Math.round(sourceFile.size / 1024)} KB)` : "None"}</dd></div>
               <div><dt>Output</dt><dd>{resultMeta}</dd></div>
               <div><dt>Privacy</dt><dd>{mode === "local" ? "Processed locally in this browser." : "A resized derivative is sent to RunPod only when requested; no public result page."}</dd></div>
-              {mode === "ai" && <div><dt>Limit</dt><dd>Two best-effort jobs per network and server instance each day, one GPU worker, USD 5 prepaid ceiling.</dd></div>}
+              {mode === "ai" && <div><dt>Limit</dt><dd>Two best-effort jobs per network and server instance each day, one GPU worker, USD 10 prepaid ceiling.</dd></div>}
             </dl>
           </aside>
         </section>

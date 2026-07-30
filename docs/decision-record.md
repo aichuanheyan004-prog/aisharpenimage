@@ -51,7 +51,7 @@ Possible stack: ONNX Runtime Web/WebGPU/WASM plus a legally usable quantized sup
 
 ### 3. RunPod Serverless GPU / ComfyUI
 
-Decision: test small, authorized by the user on July 30, 2026 with a USD 5 prepaid ceiling. Do not use a paid closed-model API.
+Decision: test small, authorized by the user on July 30, 2026 with a USD 10 prepaid ceiling after RunPod's live billing UI rejected the original USD 5 ceiling because its minimum card transaction is USD 10. Do not use a paid closed-model API.
 
 The beta uses RunPod Serverless, the official `worker-comfyui` image, and the BSD-3-Clause `RealESRGAN_x4plus.pth` model. The browser creates an approximately 1 MP WebP derivative; the Vercel API decodes it with `sharp`, verifies actual type and dimensions, rejects animation/transparency, rotates from EXIF, strips metadata, and submits only a fixed workflow. Real-ESRGAN performs model-assisted 4x super-resolution and ComfyUI downsamples to a practical 2x WebP. This is not face restoration, forensic recovery, or true motion deblur.
 
@@ -63,9 +63,9 @@ Controls: 1.25 MB prepared upload, 1 MP and 1600 px edge server limits, real MIM
 
 MVP payment decision: no user login, no checkout, no ads at launch. Local Sharpen remains free and has no marginal inference cost. AI 2x is a small free beta funded only by a manually prepaid RunPod balance.
 
-RunPod pricing check: official RunPod pages observed July 30, 2026 showed the cheapest 16 GB Serverless class at approximately USD 0.58 per GPU-hour, billed per second. A USD 5 balance therefore represents at most about 8.6 billed GPU-hours before cold-start and other execution effects; it does not guarantee a number of successful images. RunPod does not provide a native USD 5 monthly hard limit, so the enforceable setup is: deposit only USD 5, disable auto-pay, enable a low-balance alert, use zero active workers, and stop when credits reach zero. No recharge is authorized without a new user confirmation.
+RunPod pricing check: official RunPod pages observed July 30, 2026 showed the cheapest 16 GB Serverless class at approximately USD 0.58 per GPU-hour, billed per second. The live billing page also showed a USD 10 minimum card transaction and Auto-Pay disabled. A USD 10 balance therefore represents at most about 17.2 billed GPU-hours before cold-start and other execution effects; it does not guarantee a number of successful images. RunPod does not provide a native monthly hard limit, so the enforceable setup is: deposit only USD 10, keep auto-pay disabled, enable a low-balance alert, use zero active workers, and stop when credits reach zero. No recharge is authorized without a new user confirmation.
 
-Illustrative compute-only scenarios at USD 0.58/hour: 20 billed seconds is about USD 0.0032 per job, 60 seconds about USD 0.0097, and the full 120-second timeout about USD 0.0193. These exclude failed work, cold-start behavior, data transfer, tax, and future price changes. Measure actual billed seconds and completed outputs before setting any free allowance. The USD 5 deposit does not reset monthly; maintaining a USD 5/month policy requires a deliberate manual review and at most one approved top-up per month.
+Illustrative compute-only scenarios at USD 0.58/hour: 20 billed seconds is about USD 0.0032 per job, 60 seconds about USD 0.0097, and the full 120-second timeout about USD 0.0193. These exclude failed work, cold-start behavior, data transfer, tax, and future price changes. Measure actual billed seconds and completed outputs before setting any free allowance. The USD 10 deposit does not reset monthly; any later top-up requires a deliberate manual review and a new user approval.
 
 Vercel's current request and response payload limit is 4.5 MB. The client reduces inputs before upload, the API caps request data, and output is a quality-82 WebP capped below that boundary. The best-effort per-IP/runtime limiter helps availability but cannot resist distributed proxies or guarantee quota consistency across serverless instances. The prepaid balance remains the only reliable bill ceiling.
 
