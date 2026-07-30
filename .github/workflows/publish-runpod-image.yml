@@ -1,0 +1,51 @@
+name: Publish RunPod image
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - runpod/**
+      - .github/workflows/publish-runpod-image.yml
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE_NAME: ghcr.io/aichuanheyan004-prog/aisharpenimage
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Sign in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and publish immutable worker image
+        uses: docker/build-push-action@v6
+        with:
+          context: runpod
+          file: runpod/Dockerfile
+          platforms: linux/amd64
+          push: true
+          provenance: mode=max
+          sbom: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:runpod-comfyui-5.8.6-realesrgan-x4plus
+            ${{ env.IMAGE_NAME }}:runpod-${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/aichuanheyan004-prog/aisharpenimage
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.licenses=AGPL-3.0
