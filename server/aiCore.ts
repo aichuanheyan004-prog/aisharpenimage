@@ -4,7 +4,8 @@ export const SERVER_AI_MAX_BYTES = 1_250_000;
 export const SERVER_AI_MAX_PIXELS = 1_000_000;
 export const SERVER_AI_MAX_EDGE = 1_600;
 export const SERVER_AI_MAX_RESULT_CHARS = 4_000_000;
-export const REAL_ESRGAN_MODEL = "RealESRGAN_x4plus.pth";
+export const REAL_ESRGAN_MODEL = "RealESRGAN_x2plus.pth";
+export const AI_BLEND_FACTOR = 0.85;
 
 export type SanitizedAiInput = {
   dataUrl: string;
@@ -79,20 +80,30 @@ export function buildComfyWorkflow() {
     "3": {
       inputs: { upscale_model: ["2", 0], image: ["1", 0] },
       class_type: "ImageUpscaleWithModel",
-      _meta: { title: "AI 4x restoration" }
+      _meta: { title: "Native AI 2x enhancement" }
     },
     "4": {
-      inputs: { image: ["3", 0], upscale_method: "lanczos", scale_by: 0.5 },
+      inputs: { image: ["1", 0], upscale_method: "lanczos", scale_by: 2 },
       class_type: "ImageScaleBy",
-      _meta: { title: "Return a practical 2x output" }
+      _meta: { title: "Faithful 2x reference" }
     },
     "5": {
       inputs: {
-        images: ["4", 0],
+        image1: ["4", 0],
+        image2: ["3", 0],
+        blend_factor: AI_BLEND_FACTOR,
+        blend_mode: "normal"
+      },
+      class_type: "ImageBlend",
+      _meta: { title: "Reduce artifacts while retaining AI detail" }
+    },
+    "6": {
+      inputs: {
+        images: ["5", 0],
         filename_prefix: "aisharpenimage",
         fps: 1,
         lossless: false,
-        quality: 82,
+        quality: 88,
         method: "default"
       },
       class_type: "SaveAnimatedWEBP",

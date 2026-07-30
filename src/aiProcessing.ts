@@ -80,7 +80,7 @@ export async function prepareAiUpload(file: File, signal?: AbortSignal): Promise
     let prepared = await canvasToBlob(canvas, 0.86);
     if (prepared.size > AI_UPLOAD_MAX_BYTES) prepared = await canvasToBlob(canvas, 0.72);
     if (prepared.size > AI_UPLOAD_MAX_BYTES) {
-      throw new Error("This image is too complex for the limited AI beta. Try the local sharpener.");
+      throw new Error("This image is too complex for AI processing. Try the local sharpener.");
     }
 
     return {

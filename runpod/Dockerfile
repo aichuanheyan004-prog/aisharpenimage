@@ -20,4 +20,7 @@ RUN mkdir -p /comfyui/models/upscale_models
 ADD --checksum=sha256:4fa0d38905f75ac06eb49a7951b426670021be3018265fd191d2125df9d682f1 \
     https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth \
     /comfyui/models/upscale_models/RealESRGAN_x4plus.pth
-RUN python -c "from pathlib import Path; assert Path('/comfyui/models/upscale_models/RealESRGAN_x4plus.pth').stat().st_size == 67040989"
+ADD --checksum=sha256:49fafd45f8fd7aa8d31ab2a22d14d91b536c34494a5cfe31eb5d89c2fa266abb \
+    https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.1/RealESRGAN_x2plus.pth \
+    /comfyui/models/upscale_models/RealESRGAN_x2plus.pth
+RUN python -c "from pathlib import Path; assert Path('/comfyui/models/upscale_models/RealESRGAN_x4plus.pth').stat().st_size == 67040989; assert Path('/comfyui/models/upscale_models/RealESRGAN_x2plus.pth').stat().st_size == 67061725"

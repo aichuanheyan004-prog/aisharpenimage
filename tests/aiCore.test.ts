@@ -3,6 +3,7 @@
 import { describe, expect, it } from "vitest";
 import sharp from "sharp";
 import {
+  AI_BLEND_FACTOR,
   REAL_ESRGAN_MODEL,
   buildComfyWorkflow,
   createRunpodInput,
@@ -57,7 +58,11 @@ describe("RunPod contract", () => {
   it("uses a fixed allowlisted ComfyUI workflow", () => {
     const workflow = buildComfyWorkflow();
     expect(workflow["2"].inputs.model_name).toBe(REAL_ESRGAN_MODEL);
-    expect(workflow["5"].class_type).toBe("SaveAnimatedWEBP");
+    expect(workflow["3"].inputs.image).toEqual(["1", 0]);
+    expect(workflow["4"].inputs).toMatchObject({ image: ["1", 0], scale_by: 2 });
+    expect(workflow["5"].inputs).toMatchObject({ blend_factor: AI_BLEND_FACTOR, blend_mode: "normal" });
+    expect(workflow["6"].class_type).toBe("SaveAnimatedWEBP");
+    expect(workflow["6"].inputs).toMatchObject({ images: ["5", 0], quality: 88 });
     const request = createRunpodInput({ dataUrl: "data:image/webp;base64,AAAA", width: 1, height: 1 });
     expect(request.input.images).toEqual([{ name: "input.webp", image: "data:image/webp;base64,AAAA" }]);
   });
