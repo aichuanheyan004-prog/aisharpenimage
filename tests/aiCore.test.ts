@@ -70,9 +70,25 @@ describe("RunPod contract", () => {
     expect(() => validateJobId("../bad")).toThrow(/job ID/i);
   });
 
-  it("extracts supported results and rejects oversized or missing output", () => {
+  it("extracts supported data URLs", () => {
     const image = "data:image/webp;base64,AAAA";
     expect(extractRunpodImage({ output: { images: [{ data: image }] } })).toBe(image);
+  });
+
+  it("normalizes RunPod's raw WebP base64 output", async () => {
+    const webp = await sharp({
+      create: { width: 2, height: 2, channels: 3, background: { r: 10, g: 20, b: 30 } }
+    }).webp().toBuffer();
+    const raw = webp.toString("base64");
+    expect(extractRunpodImage({ output: { images: [{ data: raw }] } }))
+      .toBe(`data:image/webp;base64,${raw}`);
+  });
+
+  it("rejects malformed, disguised, oversized, or missing output", () => {
+    expect(() => extractRunpodImage({ output: { images: [{ data: "not-base64" }] } })).toThrow(/without/i);
+    expect(() => extractRunpodImage({ output: { images: [{ data: Buffer.from("not a webp").toString("base64") }] } })).toThrow(/without/i);
+    const oversized = `data:image/webp;base64,${"A".repeat(4_000_000)}`;
+    expect(() => extractRunpodImage({ output: { images: [{ data: oversized }] } })).toThrow(/exceeds/i);
     expect(() => extractRunpodImage({ output: {} })).toThrow(/without/i);
   });
 });
