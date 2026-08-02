@@ -458,6 +458,7 @@ function Header() {
       <a className="brand" href="/" aria-label="AI Sharpen Image home"><span>AI</span> Sharpen Image</a>
       <nav aria-label="Main navigation">
         <a href="/guide">Guide</a>
+        <a href="/blog">Blog</a>
         <a href="/privacy">Privacy</a>
         <a href="/terms">Terms</a>
       </nav>
