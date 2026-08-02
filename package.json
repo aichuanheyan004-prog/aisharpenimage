@@ -13,7 +13,9 @@
     "make:og": "node scripts/make-og.mjs",
     "benchmark:fixtures": "node scripts/make-quality-fixtures.mjs",
     "benchmark:blends": "node scripts/make-blend-candidates.mjs",
-    "benchmark:quality": "node scripts/benchmark-quality.mjs"
+    "benchmark:quality": "node scripts/benchmark-quality.mjs",
+    "indexnow": "node scripts/submit-indexnow.mjs",
+    "indexnow:live": "node scripts/submit-indexnow.mjs --live"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^6.0.4",
